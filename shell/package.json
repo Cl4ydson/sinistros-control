@@ -1,0 +1,15 @@
+{
+  "name": "sinistros-shell",
+  "version": "0.1.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --windows nsis"
+  },
+  "dependencies": {
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.2"
+  }
+}
