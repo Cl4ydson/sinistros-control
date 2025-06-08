@@ -41,40 +41,28 @@ class SinistroResponse:
     """Modelo de resposta padronizado para sinistros"""
     
     def __init__(self, sinistro_data):
-        self.id = f"{sinistro_data.get('Nota Fiscal', '')}-{sinistro_data.get('Minu.Conh', '')}"
-        self.nr_conhecimento = sinistro_data.get('Minu.Conh', '')
-        self.nota_fiscal = sinistro_data.get('Nota Fiscal', '')
-        self.cliente = sinistro_data.get('Destinatário', '')  # Usando destinatário como cliente
-        self.remetente = sinistro_data.get('Remetente', '')
-        self.data_evento = sinistro_data.get('Data Ocorrência')
-        self.data_coleta = sinistro_data.get('Data Coleta')
-        self.data_cadastro = sinistro_data.get('Data Cadastro')
-        self.hora_cadastro = sinistro_data.get('Hora Cadastro')
-        self.data_alteracao = sinistro_data.get('Data Alteração')
-        self.hora_alteracao = sinistro_data.get('Hora Alteração')
-        self.modal = self._determinar_modal()
-        self.tipo_ocorrencia = sinistro_data.get('Ocorrência', '')
-        self.descricao_ocorrencia = sinistro_data.get('Compl. Ocorrência', '')
-        self.ultima_ocorrencia = sinistro_data.get('ULTIMA OCORRENCIA', '')
-        self.referencia = sinistro_data.get('REFERENCIA', '')
-        self.status = self._determinar_status()
-        self.valor_mercadoria = 0.0  # Não temos este campo na query atual
+        self.id = f"{sinistro_data.get('nota_fiscal', '')}-{sinistro_data.get('nr_conhecimento', '')}"
+        self.nr_conhecimento = sinistro_data.get('nr_conhecimento', '')
+        self.nota_fiscal = sinistro_data.get('nota_fiscal', '')
+        self.cliente = sinistro_data.get('cliente', '')
+        self.remetente = sinistro_data.get('remetente', '')
+        self.data_coleta = sinistro_data.get('data_coleta')
+        self.prazo_entrega = sinistro_data.get('prazo_entrega')
+        self.data_entrega = sinistro_data.get('data_entrega')
+        self.data_agendamento = sinistro_data.get('data_agendamento')
+        self.data_evento = sinistro_data.get('data_evento')
+        self.data_cadastro = sinistro_data.get('data_cadastro')
+        self.hora_cadastro = sinistro_data.get('hora_cadastro')
+        self.data_alteracao = sinistro_data.get('data_alteracao')
+        self.hora_alteracao = sinistro_data.get('hora_alteracao')
+        self.modal = sinistro_data.get('modal', 'Rodoviário')
+        self.tipo_ocorrencia = sinistro_data.get('tipo_ocorrencia', '')
+        self.descricao_ocorrencia = sinistro_data.get('descricao_ocorrencia', '')
+        self.ultima_ocorrencia = sinistro_data.get('ultima_ocorrencia', '')
+        self.referencia = sinistro_data.get('referencia', '')
+        self.status = sinistro_data.get('status', 'Pendente')
+        self.valor_mercadoria = float(sinistro_data.get('valor_mercadoria', 0) or 0)
         
-    def _determinar_modal(self):
-        """Determina o modal baseado em regras de negócio"""
-        # Aqui você pode implementar lógica para determinar o modal
-        # baseado no número do conhecimento ou outras informações
-        return "Rodoviário"  # Default
-        
-    def _determinar_status(self):
-        """Determina o status baseado na ocorrência"""
-        ocorrencia = self.tipo_ocorrencia.upper()
-        
-        if any(palavra in ocorrencia for palavra in ['AVARIA', 'EXTRAVIO', 'ROUBO', 'SINISTRADA']):
-            return "Em análise"
-        else:
-            return "Pendente"
-    
     def to_dict(self):
         """Converte para dicionário para serialização JSON"""
         return {
@@ -83,8 +71,11 @@ class SinistroResponse:
             'nota_fiscal': self.nota_fiscal,
             'cliente': self.cliente,
             'remetente': self.remetente,
-            'data_evento': self.data_evento.isoformat() if self.data_evento else None,
             'data_coleta': self.data_coleta.isoformat() if self.data_coleta else None,
+            'prazo_entrega': self.prazo_entrega.isoformat() if self.prazo_entrega else None,
+            'data_entrega': self.data_entrega.isoformat() if self.data_entrega else None,
+            'data_agendamento': self.data_agendamento.isoformat() if self.data_agendamento else None,
+            'data_evento': self.data_evento.isoformat() if self.data_evento else None,
             'data_cadastro': self.data_cadastro.isoformat() if self.data_cadastro else None,
             'hora_cadastro': str(self.hora_cadastro) if self.hora_cadastro else None,
             'data_alteracao': self.data_alteracao.isoformat() if self.data_alteracao else None,

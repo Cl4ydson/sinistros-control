@@ -30,6 +30,35 @@ const SinistrosPage = () => {
     cliente: '',
   });
 
+  // Estados para paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Calcula os índices dos itens a serem exibidos
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = sinistros.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Opções de itens por página
+  const itemsPerPageOptions = [10, 20, 30, 50, 100];
+
+  // Função para mudar de página
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // Função para mudar quantidade de itens por página
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Volta para primeira página ao mudar quantidade de itens
+  };
+
+  // Atualiza total de páginas quando sinistros ou itemsPerPage mudam
+  useEffect(() => {
+    setTotalPages(Math.ceil(sinistros.length / itemsPerPage));
+  }, [sinistros, itemsPerPage]);
+
   /* ----------------------------------------------------------------- *
    * Mock Data para teste
    * ----------------------------------------------------------------- */
@@ -183,7 +212,7 @@ const SinistrosPage = () => {
         Object.entries(filtros).filter(([, v]) => v)
       );
       const qs = new URLSearchParams(params).toString();
-      const url = `http://127.0.0.1:8001/sinistros${qs ? '?' + qs : ''}`;
+      const url = `http://127.0.0.1:8000/sinistros${qs ? '?' + qs : ''}`;
       
       console.log('🌐 Fazendo requisição para:', url);
       console.log('📋 Filtros aplicados:', params);
@@ -566,7 +595,7 @@ const SinistrosPage = () => {
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sinistros.map((s) => (
+                  {currentItems.map((s) => (
                     <tr key={`${s.nota_fiscal}-${s.nr_conhecimento}`} className="hover:bg-gray-50">
                       <Td>{s.nota_fiscal}</Td>
                       <Td bold>{s.nr_conhecimento}</Td>
@@ -612,6 +641,109 @@ const SinistrosPage = () => {
               </table>
             </div>
           )}
+        </div>
+
+        {/* ---------- Controles de Paginação --------------------------------- */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg shadow">
+          {/* Seletor de itens por página */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Itens por página:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {itemsPerPageOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Informações e navegação */}
+          <div className="flex items-center gap-4">
+            {/* Info de itens */}
+            <span className="text-sm text-gray-600">
+              Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, sinistros.length)} de {sinistros.length} itens
+            </span>
+
+            {/* Botões de navegação */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg
+                         hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Primeira
+              </button>
+
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg
+                         hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+
+              {/* Números das páginas */}
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, index) => {
+                  const pageNumber = index + 1;
+                  // Mostrar apenas algumas páginas para não sobrecarregar a interface
+                  if (
+                    pageNumber === 1 ||
+                    pageNumber === totalPages ||
+                    (pageNumber >= currentPage - 2 && pageNumber <= currentPage + 2)
+                  ) {
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => handlePageChange(pageNumber)}
+                        className={`px-3 py-1 text-sm border rounded-lg
+                                  ${
+                                    currentPage === pageNumber
+                                      ? 'bg-blue-600 text-white border-blue-600'
+                                      : 'border-gray-300 hover:bg-gray-50'
+                                  }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  }
+                  // Adicionar reticências para páginas omitidas
+                  if (
+                    pageNumber === currentPage - 3 ||
+                    pageNumber === currentPage + 3
+                  ) {
+                    return <span key={pageNumber}>...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg
+                         hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Próxima
+              </button>
+
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg
+                         hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Última
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* ---------- Modal --------------------------------------------------- */}

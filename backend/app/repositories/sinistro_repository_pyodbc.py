@@ -69,33 +69,51 @@ class SinistroRepositoryPyODBC:
         conhecimento: Optional[str] = None,
         limit: Optional[int] = None
     ) -> List[Dict]:
-        """Busca sinistros com filtros - SEM ORDER BY problemático"""
+        """Busca sinistros com filtros - Retorna TODOS os registros se limit=None"""
         
-        # Query super simples que FUNCIONA
-        limit_clause = f"TOP {limit if limit else 10}"
+        # Query completa sem limite fixo - usando apenas campos que existem
+        limit_clause = f"TOP {limit}" if limit else ""
         
         sql = f"""
         SELECT DISTINCT {limit_clause}
-            OCN.nr_NotaFiscal AS [Nota Fiscal],
-            OCO.ds_Ocorrencia AS [Ocorrência],
-            MOV.ds_Cliente AS [Destinatário],
-            MOV.ds_Remetente AS [Remetente],
-            MOV.dt_Coleta AS [Data Coleta],
-            OCN.ds_Ocorrencia AS [Compl. Ocorrência],
-            '' AS [ULTIMA OCORRENCIA],
-            MOV.nr_Referencia AS [REFERENCIA],
-            OCN.dt_PrazoFechamento AS [Data Ocorrência],
-            OCN.dt_Abertura AS [Data Cadastro],
-            OCN.hr_Abertura AS [Hora Cadastro],
-            OCN.dt_Alteracao AS [Data Alteração],
-            OCN.hr_Alteracao AS [Hora Alteração],
+            RTRIM(OCN.nr_NotaFiscal) AS nota_fiscal,
             CASE WHEN UPPER(RTRIM(MOV.nr_Conhecimento)) = ''
                  THEN RTRIM(MOV.nr_Minuta)
                  ELSE UPPER(RTRIM(MOV.nr_Conhecimento))
-            END AS [Minu.Conh]
+            END AS nr_conhecimento,
+            RTRIM(MOV.ds_Remetente) AS remetente,
+            TRIM(MOV.ds_Cliente) AS cliente,
+            MOV.dt_Coleta AS data_coleta,
+            NULL AS prazo_entrega,
+            NULL AS data_entrega,
+            RTRIM(OCO.ds_Ocorrencia) AS tipo_ocorrencia,
+            RTRIM(OCN.ds_Ocorrencia) AS descricao_ocorrencia,
+            COALESCE(ULTOCO.ds_Ocorrencia, '') AS ultima_ocorrencia,
+            MOV.nr_Referencia AS referencia,
+            OCN.dt_Agendamento AS data_agendamento,
+            OCN.dt_PrazoFechamento AS data_evento,
+            OCN.dt_Abertura AS data_cadastro,
+            OCN.hr_Abertura AS hora_cadastro,
+            OCN.dt_Alteracao AS data_alteracao,
+            OCN.hr_Alteracao AS hora_alteracao,
+            'Rodoviário' AS modal,
+            0.0 AS valor_mercadoria,
+            CASE 
+                WHEN OCO.ds_Ocorrencia IN ('AVARIA PARCIAL', 'AVARIA TOTAL') THEN 'Em análise'
+                WHEN OCO.ds_Ocorrencia IN ('EXTRAVIO TOTAL', 'EXTRAVIO PARCIAL') THEN 'Pendente' 
+                WHEN OCO.ds_Ocorrencia = 'ROUBO DE CARGA' THEN 'Pendente'
+                WHEN OCO.ds_Ocorrencia = 'MERCADORIA SINISTRADA' THEN 'Concluído'
+                ELSE 'Em análise'
+            END AS status
         FROM tbdOcorrenciaNota OCN WITH (NOLOCK)
         INNER JOIN tbdOcorrencia OCO WITH (NOLOCK) ON OCN.id_Ocorrencia = OCO.id_Ocorrencia
         INNER JOIN tbdMovimento MOV WITH (NOLOCK) ON OCN.id_Movimento = MOV.id_Movimento
+        LEFT JOIN tbdOcorrencia ULTOCO WITH (NOLOCK) ON ULTOCO.id_Ocorrencia = (
+            SELECT TOP 1 OCN2.id_Ocorrencia
+            FROM tbdOcorrenciaNota OCN2 WITH (NOLOCK)
+            WHERE OCN2.id_Movimento = MOV.id_Movimento
+            ORDER BY OCN2.dt_Abertura DESC, OCN2.hr_Abertura DESC
+        )
         WHERE OCO.ds_Ocorrencia IN (
             'AVARIA PARCIAL','AVARIA TOTAL',
             'EXTRAVIO TOTAL','EXTRAVIO PARCIAL', 
@@ -122,6 +140,9 @@ class SinistroRepositoryPyODBC:
             sql += " AND (MOV.nr_Conhecimento = ? OR MOV.nr_Minuta = ?)"
             params.extend([conhecimento, conhecimento])
         
+        # Ordem para resultados consistentes
+        sql += " ORDER BY OCN.dt_Abertura DESC, OCN.hr_Abertura DESC"
+        
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -131,8 +152,14 @@ class SinistroRepositoryPyODBC:
             columns = [column[0] for column in cursor.description]
             results = []
             for row in cursor.fetchall():
-                row_dict = {columns[i]: (value.strip() if isinstance(value, str) else value) 
-                           for i, value in enumerate(row)}
+                row_dict = {}
+                for i, value in enumerate(row):
+                    column_name = columns[i]
+                    # Tratar strings removendo espaços
+                    if isinstance(value, str):
+                        row_dict[column_name] = value.strip()
+                    else:
+                        row_dict[column_name] = value
                 results.append(row_dict)
             
             conn.close()
@@ -152,7 +179,7 @@ class SinistroRepositoryPyODBC:
         """Busca um sinistro específico - CORRIGIDA"""
         
         sql = """
-        SELECT DISTINCT TOP 1
+        SELECT DISTINCT TOP 10000
                RTRIM(OCN.nr_NotaFiscal)      AS [Nota Fiscal],
                CASE WHEN UPPER(RTRIM(MOV.nr_Conhecimento)) = ''
                     THEN RTRIM(MOV.nr_Minuta)
