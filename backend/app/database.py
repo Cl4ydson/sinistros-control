@@ -25,8 +25,8 @@ SessionLocal_Principal = sessionmaker(bind=engine_principal, autocommit=False, a
 # ========== BANCO SINISTRO (AUTOMACAO) ==========
 # Credenciais para banco de sinistros
 user_sinistro = "consulta.pbi"
-password_sinistro = "naMf.}T3KVg+3fo6Z7Sq"
-server_sinistro = "172.30.0.211"
+password_sinistro = "Br$Samor@2025#C"
+server_sinistro = "137.131.246.149"
 database_sinistro = "dtbTransporte"
 
 # Usar connection string direta que funciona

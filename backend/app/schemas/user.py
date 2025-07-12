@@ -14,7 +14,7 @@ class UserResponse(UserBase):
     id: int
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class UserLogin(BaseModel):
     login: str
@@ -26,4 +26,3 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     login: Optional[str] = None
-

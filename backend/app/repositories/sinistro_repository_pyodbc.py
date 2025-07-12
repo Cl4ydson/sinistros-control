@@ -14,7 +14,7 @@ class SinistroRepositoryPyODBC:
     """Repository usando pyodbc diretamente"""
     
     def __init__(self):
-        self.conn_str = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=172.30.0.211;DATABASE=dtbTransporte;UID=consulta.pbi;PWD=naMf.}T3KVg+3fo6Z7Sq;TrustServerCertificate=yes;"
+        self.conn_str = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=137.131.246.149;DATABASE=dtbTransporte;UID=consulta.pbi;PWD=Br$Samor@2025#C;TrustServerCertificate=yes;"
     
     def _get_connection(self):
         """Cria uma nova conexão"""
@@ -36,11 +36,11 @@ class SinistroRepositoryPyODBC:
                RTRIM(OCN.ds_Ocorrencia)       AS [Compl. Ocorrência],
                TRIM(ULTOCO.ds_Ocorrencia)     AS [ULTIMA OCORRENCIA],
                MOV.nr_Referencia              AS [REFERENCIA],
-               OCN.dt_PrazoFechamento         AS [Data Ocorrência],
-               OCN.dt_Abertura                AS [Data Cadastro],
-               OCN.hr_Abertura                AS [Hora Cadastro],
-               OCN.dt_Alteracao               AS [Data Alteração],
-               OCN.hr_Alteracao               AS [Hora Alteração]
+            #   OCN.dt_PrazoFechamento         AS [Data Ocorrência],
+            #    OCN.dt_Abertura                AS [Data Cadastro],
+            #    OCN.hr_Abertura                AS [Hora Cadastro],
+            #    OCN.dt_Alteracao               AS [Data Alteração],
+            #    OCN.hr_Alteracao               AS [Hora Alteração]
         FROM   tbdOcorrenciaNota          OCN   WITH (NOLOCK)
         INNER  JOIN tbdOcorrencia         OCO   WITH (NOLOCK) ON OCN.id_Ocorrencia  = OCO.id_Ocorrencia
         INNER  JOIN tbdMovimento          MOV   WITH (NOLOCK) ON OCN.id_Movimento   = MOV.id_Movimento
@@ -69,10 +69,10 @@ class SinistroRepositoryPyODBC:
         conhecimento: Optional[str] = None,
         limit: Optional[int] = None
     ) -> List[Dict]:
-        """Busca sinistros com filtros - Retorna TODOS os registros se limit=None"""
+        """Busca sinistros com filtros - Query CORRIGIDA"""
         
-        # Query completa sem limite fixo - usando apenas campos que existem
-        limit_clause = f"TOP {limit}" if limit else ""
+        # Query corrigida com sintaxe SQL Server válida
+        limit_clause = f"TOP {limit}" if limit else "TOP 1000"
         
         sql = f"""
         SELECT DISTINCT {limit_clause}
@@ -82,22 +82,12 @@ class SinistroRepositoryPyODBC:
                  ELSE UPPER(RTRIM(MOV.nr_Conhecimento))
             END AS nr_conhecimento,
             RTRIM(MOV.ds_Remetente) AS remetente,
-            TRIM(MOV.ds_Cliente) AS cliente,
+            RTRIM(MOV.ds_Cliente) AS cliente,
             MOV.dt_Coleta AS data_coleta,
-            NULL AS prazo_entrega,
-            NULL AS data_entrega,
             RTRIM(OCO.ds_Ocorrencia) AS tipo_ocorrencia,
             RTRIM(OCN.ds_Ocorrencia) AS descricao_ocorrencia,
-            COALESCE(ULTOCO.ds_Ocorrencia, '') AS ultima_ocorrencia,
             MOV.nr_Referencia AS referencia,
-            OCN.dt_Agendamento AS data_agendamento,
             OCN.dt_PrazoFechamento AS data_evento,
-            OCN.dt_Abertura AS data_cadastro,
-            OCN.hr_Abertura AS hora_cadastro,
-            OCN.dt_Alteracao AS data_alteracao,
-            OCN.hr_Alteracao AS hora_alteracao,
-            'Rodoviário' AS modal,
-            0.0 AS valor_mercadoria,
             CASE 
                 WHEN OCO.ds_Ocorrencia IN ('AVARIA PARCIAL', 'AVARIA TOTAL') THEN 'Em análise'
                 WHEN OCO.ds_Ocorrencia IN ('EXTRAVIO TOTAL', 'EXTRAVIO PARCIAL') THEN 'Pendente' 
@@ -108,12 +98,6 @@ class SinistroRepositoryPyODBC:
         FROM tbdOcorrenciaNota OCN WITH (NOLOCK)
         INNER JOIN tbdOcorrencia OCO WITH (NOLOCK) ON OCN.id_Ocorrencia = OCO.id_Ocorrencia
         INNER JOIN tbdMovimento MOV WITH (NOLOCK) ON OCN.id_Movimento = MOV.id_Movimento
-        LEFT JOIN tbdOcorrencia ULTOCO WITH (NOLOCK) ON ULTOCO.id_Ocorrencia = (
-            SELECT TOP 1 OCN2.id_Ocorrencia
-            FROM tbdOcorrenciaNota OCN2 WITH (NOLOCK)
-            WHERE OCN2.id_Movimento = MOV.id_Movimento
-            ORDER BY OCN2.dt_Abertura DESC, OCN2.hr_Abertura DESC
-        )
         WHERE OCO.ds_Ocorrencia IN (
             'AVARIA PARCIAL','AVARIA TOTAL',
             'EXTRAVIO TOTAL','EXTRAVIO PARCIAL', 
@@ -141,7 +125,7 @@ class SinistroRepositoryPyODBC:
             params.extend([conhecimento, conhecimento])
         
         # Ordem para resultados consistentes
-        sql += " ORDER BY OCN.dt_Abertura DESC, OCN.hr_Abertura DESC"
+        sql += " ORDER BY MOV.dt_Coleta DESC"
         
         try:
             conn = self._get_connection()
@@ -176,44 +160,32 @@ class SinistroRepositoryPyODBC:
         nota_fiscal: str,
         conhecimento: str
     ) -> Optional[Dict]:
-        """Busca um sinistro específico - CORRIGIDA"""
+        """Busca um sinistro específico"""
         
         sql = """
-        SELECT DISTINCT TOP 10000
-               RTRIM(OCN.nr_NotaFiscal)      AS [Nota Fiscal],
+        SELECT DISTINCT TOP 1
+               RTRIM(OCN.nr_NotaFiscal) AS [Nota Fiscal],
                CASE WHEN UPPER(RTRIM(MOV.nr_Conhecimento)) = ''
                     THEN RTRIM(MOV.nr_Minuta)
                     ELSE UPPER(RTRIM(MOV.nr_Conhecimento))
-               END                            AS [Minu.Conh],
-               RTRIM(MOV.ds_Remetente)        AS [Remetente],
-               TRIM(MOV.ds_Cliente)           AS [Destinatário],
-               MOV.dt_Coleta                  AS [Data Coleta],
-               RTRIM(OCO.ds_Ocorrencia)       AS [Ocorrência],
-               RTRIM(OCN.ds_Ocorrencia)       AS [Compl. Ocorrência],
-               COALESCE(ULTOCO.ds_Ocorrencia, '') AS [ULTIMA OCORRENCIA],
-               MOV.nr_Referencia              AS [REFERENCIA],
-               OCN.dt_PrazoFechamento         AS [Data Ocorrência],
-               OCN.dt_Abertura                AS [Data Cadastro],
-               OCN.hr_Abertura                AS [Hora Cadastro],
-               OCN.dt_Alteracao               AS [Data Alteração],
-               OCN.hr_Alteracao               AS [Hora Alteração]
-        FROM   tbdOcorrenciaNota          OCN   WITH (NOLOCK)
-        INNER  JOIN tbdOcorrencia         OCO   WITH (NOLOCK) ON OCN.id_Ocorrencia  = OCO.id_Ocorrencia
-        INNER  JOIN tbdMovimento          MOV   WITH (NOLOCK) ON OCN.id_Movimento   = MOV.id_Movimento
-        LEFT   JOIN tbdOcorrencia         ULTOCO WITH (NOLOCK) ON ULTOCO.id_Ocorrencia = (
-                 SELECT TOP 1 OCN2.id_Ocorrencia
-                 FROM   tbdOcorrenciaNota OCN2 WITH (NOLOCK)
-                 WHERE  OCN2.id_Movimento = MOV.id_Movimento
-                 ORDER BY OCN2.dt_Abertura DESC, OCN2.hr_Abertura DESC
-               )
-        WHERE  OCO.ds_Ocorrencia IN (
+               END AS [Conhecimento],
+               RTRIM(MOV.ds_Remetente) AS [Remetente],
+               RTRIM(MOV.ds_Cliente) AS [Destinatário],
+               MOV.dt_Coleta AS [Data Coleta],
+               RTRIM(OCO.ds_Ocorrencia) AS [Ocorrência],
+               RTRIM(OCN.ds_Ocorrencia) AS [Descrição],
+               MOV.nr_Referencia AS [Referência]
+        FROM tbdOcorrenciaNota OCN WITH (NOLOCK)
+        INNER JOIN tbdOcorrencia OCO WITH (NOLOCK) ON OCN.id_Ocorrencia = OCO.id_Ocorrencia
+        INNER JOIN tbdMovimento MOV WITH (NOLOCK) ON OCN.id_Movimento = MOV.id_Movimento
+        WHERE OCO.ds_Ocorrencia IN (
                  'AVARIA PARCIAL','AVARIA TOTAL',
                  'EXTRAVIO TOTAL','EXTRAVIO PARCIAL',
                  'ROUBO DE CARGA','MERCADORIA SINISTRADA'
                )
         AND OCN.nr_NotaFiscal = ?
         AND (MOV.nr_Conhecimento = ? OR MOV.nr_Minuta = ?)
-        ORDER BY OCN.dt_Abertura DESC
+        ORDER BY MOV.dt_Coleta DESC
         """
         
         try:

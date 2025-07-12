@@ -8,11 +8,18 @@ import {
   AlertCircle, CheckCircle, Calendar, Filter, RefreshCw, Search,
   Eye, Truck, Edit, Save, X
 } from 'lucide-react';
+import ThemeToggle from '../components/ThemeToggle';
+import { useTheme } from '../contexts/ThemeContext';
 
 /**
  * Tela de gestão de sinistros com funcionalidade de edição
  */
 const SinistrosPage = () => {
+  /* ----------------------------------------------------------------- *
+   * Theme
+   * ----------------------------------------------------------------- */
+  const { isDark } = useTheme();
+
   /* ----------------------------------------------------------------- *
    * State
    * ----------------------------------------------------------------- */
@@ -142,10 +149,30 @@ const SinistrosPage = () => {
    * ----------------------------------------------------------------- */
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'concluído':  return 'bg-green-100 text-green-800';
-      case 'em análise': return 'bg-yellow-100 text-yellow-800';
-      case 'pendente':   return 'bg-red-100 text-red-800';
-      default:           return 'bg-gray-100 text-gray-800';
+      case 'concluído':      return 'bg-green-100 text-green-800';
+      case 'em andamento':   return 'bg-blue-100 text-blue-800';
+      case 'não iniciado':   return 'bg-yellow-100 text-yellow-800';
+      case 'não sinistrado': return 'bg-gray-100 text-gray-800';
+      case 'pendente':       return 'bg-red-100 text-red-800';
+      case 'em análise':     return 'bg-orange-100 text-orange-800';
+      default:               return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusPagamentoColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'aguardando lançamento': return 'bg-yellow-100 text-yellow-800';
+      case 'aguardando pagamento':  return 'bg-orange-100 text-orange-800';
+      case 'pago':                  return 'bg-green-100 text-green-800';
+      default:                      return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIndenizacaoColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'em aberto': return 'bg-red-100 text-red-800';
+      case 'pago':      return 'bg-green-100 text-green-800';
+      default:          return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -157,8 +184,15 @@ const SinistrosPage = () => {
     data ? new Date(data).toLocaleDateString('pt-BR') : '';
 
   const formatarDataParaInput = (data) => {
-    const date = new Date(data);
-    return date.toISOString().split('T')[0];
+    if (!data) return '';
+    try {
+      const date = new Date(data);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return '';
+    }
   };
 
   /* ----------------------------------------------------------------- *
@@ -246,8 +280,51 @@ const SinistrosPage = () => {
 
   const abrirDetalhes = (sinistro) => {
     console.log('👁️ Abrindo detalhes do sinistro:', sinistro.id);
-    setSelectedSinistro(sinistro);
-    setEditedSinistro({ ...sinistro });
+    
+    // Inicializar campos adicionais se não existirem
+    const sinistroCompleto = {
+      ...sinistro,
+      // Dados do sinistro
+      obs_sinistro: sinistro.obs_sinistro || '',
+      valor_sinistro: sinistro.valor_sinistro || 0,
+      
+      // Pagamento
+      numero_nd: sinistro.numero_nd || '',
+      data_vencimento_nd: sinistro.data_vencimento_nd || '',
+      status_pagamento: sinistro.status_pagamento || 'Aguardando lançamento',
+      
+      // Indenizações
+      responsavel_avaria: sinistro.responsavel_avaria || '',
+      indenizado: sinistro.indenizado || 'Não',
+      status_indenizacao: sinistro.status_indenizacao || 'Em aberto',
+      programacao_pagamento_indenizacao: sinistro.programacao_pagamento_indenizacao || [''],
+      
+      // Salvados
+      valor_vendido: sinistro.valor_vendido || 0,
+      responsavel_compra: sinistro.responsavel_compra || '',
+      programacao_pagamento_salvados: sinistro.programacao_pagamento_salvados || '',
+      valor_venda: sinistro.valor_venda || 0,
+      percentual_desconto: sinistro.percentual_desconto || 0,
+      
+      // Uso interno
+      data_liberacao: sinistro.data_liberacao || '',
+      responsavel_liberacao: sinistro.responsavel_liberacao || '',
+      valor_liberado: sinistro.valor_liberado || 0,
+      
+      // Acionamento jurídico
+      acionamento_juridico: sinistro.acionamento_juridico || 'Não',
+      data_abertura_juridico: sinistro.data_abertura_juridico || '',
+      custas_juridicas: sinistro.custas_juridicas || 0,
+      
+      // Acionamento seguradora
+      acionamento_seguradora: sinistro.acionamento_seguradora || 'Não',
+      data_abertura_seguradora: sinistro.data_abertura_seguradora || '',
+      seguradora: sinistro.seguradora || '',
+      programacao_indenizacao: sinistro.programacao_indenizacao || ''
+    };
+    
+    setSelectedSinistro(sinistroCompleto);
+    setEditedSinistro({ ...sinistroCompleto });
     setIsEditing(false);
     setShowModal(true);
   };
@@ -308,27 +385,38 @@ const SinistrosPage = () => {
    * Render
    * ----------------------------------------------------------------- */
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className={`min-h-screen p-6 transition-colors duration-300 ${
+      isDark ? 'bg-gray-900' : 'bg-gray-50'
+    }`}>
       <div className="max-w-7xl mx-auto">
-        {/* ---------- Cabeçalho ------------------------------------------------ */}
-        <header className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <AlertCircle className="text-red-600" />
-              Gestão de Sinistros
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Controle e acompanhamento de ocorrências de transporte
-            </p>
-            {/* Debug info */}
-            <div className="mt-2 text-sm text-gray-500">
-              Modo: {useMock ? '🧪 Mock' : '🌐 API'} | 
-              Total: {sinistros.length} sinistros
-              {error && <span className="text-red-500 ml-2">⚠️ {error}</span>}
+                  {/* ---------- Cabeçalho ------------------------------------------------ */}
+          <header className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className={`text-3xl font-bold flex items-center gap-3 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>
+                <AlertCircle className="text-red-600" />
+                Gestão de Sinistros
+              </h1>
+              <p className={`mt-2 ${
+                isDark ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                Controle e acompanhamento de ocorrências de transporte
+              </p>
+              {/* Debug info */}
+              <div className={`mt-2 text-sm ${
+                isDark ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                Modo: {useMock ? '🧪 Mock' : '🌐 API'} | 
+                Total: {sinistros.length} sinistros
+                {error && <span className="text-red-500 ml-2">⚠️ {error}</span>}
+              </div>
             </div>
-          </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* Toggle Mock */}
             <button
               onClick={toggleMock}
@@ -361,7 +449,9 @@ const SinistrosPage = () => {
         </header>
 
         {/* ---------- Debug Panel -------------------------------------------- */}
-        <div className="bg-gray-100 rounded-lg p-4 mb-6 text-sm">
+        <div className={`rounded-lg p-4 mb-6 text-sm ${
+          isDark ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-800'
+        }`}>
           <h3 className="font-semibold mb-2">🔧 Painel de Debug</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -384,8 +474,12 @@ const SinistrosPage = () => {
 
         {/* ---------- Filtros -------------------------------------------------- */}
         {showFilters && (
-          <section className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <section className={`rounded-lg shadow-md p-6 mb-6 ${
+            isDark ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>
               <Filter size={20} />
               Filtros de Pesquisa
             </h3>
@@ -393,42 +487,57 @@ const SinistrosPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Data inicial ------------------------------------------------ */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Data Inicial
                 </label>
                 <input
                   type="date"
                   value={filtros.dt_ini}
                   onChange={(e) => handleFiltroChange('dt_ini', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    isDark 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
 
               {/* Data final -------------------------------------------------- */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Data Final
                 </label>
                 <input
                   type="date"
                   value={filtros.dt_fim}
                   onChange={(e) => handleFiltroChange('dt_fim', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    isDark 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
 
               {/* Modal ------------------------------------------------------- */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Modal
                 </label>
                 <select
                   value={filtros.modal}
                   onChange={(e) => handleFiltroChange('modal', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    isDark 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 >
                   <option value="">Todos</option>
                   <option value="Rodoviário">Rodoviário</option>
@@ -438,7 +547,9 @@ const SinistrosPage = () => {
 
               {/* Cliente ----------------------------------------------------- */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   Cliente
                 </label>
                 <input
@@ -482,6 +593,7 @@ const SinistrosPage = () => {
             value={sinistros.length}
             Icon={AlertCircle}
             iconClass="text-blue-600"
+            isDark={isDark}
           />
 
           {/* Em análise ------------------------------------------------------ */}
@@ -491,6 +603,7 @@ const SinistrosPage = () => {
             Icon={Calendar}
             iconClass="text-yellow-600"
             valueClass="text-yellow-600"
+            isDark={isDark}
           />
 
           {/* Concluídos ------------------------------------------------------ */}
@@ -500,6 +613,7 @@ const SinistrosPage = () => {
             Icon={CheckCircle}
             iconClass="text-green-600"
             valueClass="text-green-600"
+            isDark={isDark}
           />
 
           {/* Valor total ----------------------------------------------------- */}
@@ -511,13 +625,20 @@ const SinistrosPage = () => {
             Icon={Truck}
             iconClass="text-red-600"
             valueClass="text-red-600"
+            isDark={isDark}
           />
         </section>
 
         {/* ---------- Tabela -------------------------------------------------- */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className={`rounded-lg shadow-md overflow-hidden ${
+          isDark ? 'bg-gray-800' : 'bg-white'
+        }`}>
+          <div className={`px-6 py-4 border-b ${
+            isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+          }`}>
+            <h3 className={`text-lg font-semibold ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>
               Lista de Sinistros
             </h3>
           </div>
@@ -541,54 +662,58 @@ const SinistrosPage = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
                   <tr>
-                    <Th>Nota Fiscal</Th>
-                    <Th>Conhecimento</Th>
-                    <Th>Remetente</Th>
-                    <Th>Destinatário</Th>
-                    <Th>Data Coleta</Th>
-                    <Th>Prazo Entrega</Th>
-                    <Th>Data Entrega</Th>
-                    <Th>Ocorrência</Th>
-                    <Th>Compl. Ocorrência</Th>
-                    <Th>Última Ocorrência</Th>
-                    <Th>Referência</Th>
-                    <Th>Data Agendamento</Th>
-                    <Th>Data Ocorrência</Th>
-                    <Th>Data Cadastro</Th>
-                    <Th>Hora Cadastro</Th>
-                    <Th>Data Alteração</Th>
-                    <Th>Hora Alteração</Th>
-                    <Th>Modal</Th>
-                    <Th>Valor</Th>
-                    <Th>Status</Th>
-                    <Th>Ações</Th>
+                    <Th isDark={isDark}>Nota Fiscal</Th>
+                    <Th isDark={isDark}>Conhecimento</Th>
+                    <Th isDark={isDark}>Remetente</Th>
+                    <Th isDark={isDark}>Destinatário</Th>
+                    <Th isDark={isDark}>Data Coleta</Th>
+                    <Th isDark={isDark}>Prazo Entrega</Th>
+                    <Th isDark={isDark}>Data Entrega</Th>
+                    <Th isDark={isDark}>Ocorrência</Th>
+                    <Th isDark={isDark}>Compl. Ocorrência</Th>
+                    <Th isDark={isDark}>Última Ocorrência</Th>
+                    <Th isDark={isDark}>Referência</Th>
+                    <Th isDark={isDark}>Data Agendamento</Th>
+                    <Th isDark={isDark}>Data Ocorrência</Th>
+                    <Th isDark={isDark}>Data Cadastro</Th>
+                    <Th isDark={isDark}>Hora Cadastro</Th>
+                    <Th isDark={isDark}>Data Alteração</Th>
+                    <Th isDark={isDark}>Hora Alteração</Th>
+                    <Th isDark={isDark}>Modal</Th>
+                    <Th isDark={isDark}>Valor</Th>
+                    <Th isDark={isDark}>Status</Th>
+                    <Th isDark={isDark}>Ações</Th>
                   </tr>
                 </thead>
 
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className={`divide-y ${
+                  isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'
+                }`}>
                   {sinistros.map((s) => (
-                    <tr key={`${s.nota_fiscal}-${s.nr_conhecimento}`} className="hover:bg-gray-50">
-                      <Td>{s.nota_fiscal}</Td>
-                      <Td bold>{s.nr_conhecimento}</Td>
-                      <Td>{s.remetente}</Td>
-                      <Td>{s.cliente}</Td>
-                      <Td>{formatarData(s.data_coleta)}</Td>
-                      <Td>{formatarData(s.prazo_entrega)}</Td>
-                      <Td>{formatarData(s.data_entrega)}</Td>
-                      <Td>{s.tipo_ocorrencia}</Td>
-                      <Td>{s.descricao_ocorrencia}</Td>
-                      <Td>{s.ultima_ocorrencia}</Td>
-                      <Td>{s.referencia}</Td>
-                      <Td>{formatarData(s.data_agendamento)}</Td>
-                      <Td>{formatarData(s.data_evento)}</Td>
-                      <Td>{formatarData(s.data_cadastro)}</Td>
-                      <Td>{s.hora_cadastro}</Td>
-                      <Td>{formatarData(s.data_alteracao)}</Td>
-                      <Td>{s.hora_alteracao}</Td>
-                      <Td>{s.modal}</Td>
-                      <Td>{formatarMoeda(s.valor_mercadoria)}</Td>
+                    <tr key={`${s.nota_fiscal}-${s.nr_conhecimento}`} className={
+                      isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                    }>
+                      <Td isDark={isDark}>{s.nota_fiscal}</Td>
+                      <Td bold isDark={isDark}>{s.nr_conhecimento}</Td>
+                      <Td isDark={isDark}>{s.remetente}</Td>
+                      <Td isDark={isDark}>{s.cliente}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_coleta)}</Td>
+                      <Td isDark={isDark}>{formatarData(s.prazo_entrega)}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_entrega)}</Td>
+                      <Td isDark={isDark}>{s.tipo_ocorrencia}</Td>
+                      <Td isDark={isDark}>{s.descricao_ocorrencia}</Td>
+                      <Td isDark={isDark}>{s.ultima_ocorrencia}</Td>
+                      <Td isDark={isDark}>{s.referencia}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_agendamento)}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_evento)}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_cadastro)}</Td>
+                      <Td isDark={isDark}>{s.hora_cadastro}</Td>
+                      <Td isDark={isDark}>{formatarData(s.data_alteracao)}</Td>
+                      <Td isDark={isDark}>{s.hora_alteracao}</Td>
+                      <Td isDark={isDark}>{s.modal}</Td>
+                      <Td isDark={isDark}>{formatarMoeda(s.valor_mercadoria)}</Td>
 
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -618,9 +743,11 @@ const SinistrosPage = () => {
 
         {/* ---------- Modal --------------------------------------------------- */}
         {showModal && selectedSinistro && editedSinistro && (
-          <Modal onClose={fecharModal}>
+          <Modal onClose={fecharModal} isDark={isDark}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className={`text-xl font-semibold ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>
                 {isEditing ? 'Editar Sinistro' : 'Detalhes do Sinistro'}
               </h2>
 
@@ -639,17 +766,19 @@ const SinistrosPage = () => {
             {/* Número do Conhecimento */}
             <EditableField
               label="Número do Conhecimento"
-              value={editedSinistro.nr_conhecimento}
+              value={editedSinistro?.nr_conhecimento || ''}
               isEditing={isEditing}
               onChange={(v) => handleEditChange('nr_conhecimento', v)}
+              isDark={isDark}
             />
 
             {/* Cliente */}
             <EditableField
               label="Cliente"
-              value={editedSinistro.cliente}
+              value={editedSinistro?.cliente || ''}
               isEditing={isEditing}
               onChange={(v) => handleEditChange('cliente', v)}
+              isDark={isDark}
             />
 
             {/* Data do Evento */}
@@ -657,18 +786,19 @@ const SinistrosPage = () => {
               label="Data do Evento"
               value={
                 isEditing
-                  ? formatarDataParaInput(editedSinistro.data_evento)
-                  : formatarData(editedSinistro.data_evento)
+                  ? formatarDataParaInput(editedSinistro?.data_evento)
+                  : formatarData(editedSinistro?.data_evento)
               }
               isEditing={isEditing}
               type={isEditing ? 'date' : 'text'}
               onChange={(v) => handleEditChange('data_evento', v)}
+              isDark={isDark}
             />
 
             {/* Modal */}
             <EditableField
               label="Modal"
-              value={editedSinistro.modal}
+              value={editedSinistro?.modal || ''}
               isEditing={isEditing}
               type="select"
               options={[
@@ -676,12 +806,13 @@ const SinistrosPage = () => {
                 { value: 'Aéreo', label: 'Aéreo' },
               ]}
               onChange={(v) => handleEditChange('modal', v)}
+              isDark={isDark}
             />
 
             {/* Tipo de Ocorrência */}
             <EditableField
               label="Tipo de Ocorrência"
-              value={editedSinistro.tipo_ocorrencia}
+              value={editedSinistro?.tipo_ocorrencia || ''}
               isEditing={isEditing}
               type="select"
               options={[
@@ -692,6 +823,7 @@ const SinistrosPage = () => {
                 { value: 'Atraso', label: 'Atraso' },
               ]}
               onChange={(v) => handleEditChange('tipo_ocorrencia', v)}
+              isDark={isDark}
             />
 
             {/* Valor da Mercadoria */}
@@ -699,8 +831,8 @@ const SinistrosPage = () => {
               label="Valor da Mercadoria"
               value={
                 isEditing
-                  ? editedSinistro.valor_mercadoria
-                  : formatarMoeda(editedSinistro.valor_mercadoria)
+                  ? editedSinistro?.valor_mercadoria || 0
+                  : formatarMoeda(editedSinistro?.valor_mercadoria || 0)
               }
               isEditing={isEditing}
               type={isEditing ? 'number' : 'text'}
@@ -708,38 +840,455 @@ const SinistrosPage = () => {
               onChange={(v) =>
                 handleEditChange('valor_mercadoria', parseFloat(v) || 0)
               }
+              isDark={isDark}
             />
 
             {/* Status */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${
+                isDark ? 'text-gray-300' : 'text-gray-700'
+              }`}>
                 Status
               </label>
               {isEditing ? (
                 <select
-                  value={editedSinistro.status}
+                  value={editedSinistro?.status || 'Não iniciado'}
                   onChange={(e) => handleEditChange('status', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                             focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    isDark 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
                 >
-                  <option value="Pendente">Pendente</option>
-                  <option value="Em análise">Em análise</option>
+                  <option value="Não iniciado">Não iniciado</option>
+                  <option value="Em andamento">Em andamento</option>
                   <option value="Concluído">Concluído</option>
+                  <option value="Não sinistrado">Não sinistrado</option>
                 </select>
               ) : (
                 <span
                   className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(
-                    editedSinistro.status
+                    editedSinistro?.status
                   )}`}
                 >
-                  {editedSinistro.status}
+                  {editedSinistro?.status || 'Não iniciado'}
                 </span>
+              )}
+            </div>
+
+            {/* ==================== DADOS DO SINISTRO ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Dados do Sinistro</h3>
+              
+              {/* Observações */}
+              <EditableField
+                label="Observações"
+                value={editedSinistro?.obs_sinistro || ''}
+                isEditing={isEditing}
+                type="textarea"
+                onChange={(v) => handleEditChange('obs_sinistro', v)}
+                isDark={isDark}
+              />
+
+              {/* Valor do Sinistro */}
+              <EditableField
+                label="Valor do Sinistro"
+                value={
+                  isEditing
+                    ? editedSinistro?.valor_sinistro || 0
+                    : formatarMoeda(editedSinistro?.valor_sinistro || 0)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'number' : 'text'}
+                step={isEditing ? '0.01' : undefined}
+                onChange={(v) => handleEditChange('valor_sinistro', parseFloat(v) || 0)}
+                isDark={isDark}
+              />
+            </div>
+
+            {/* ==================== PAGAMENTO ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Pagamento</h3>
+              
+              {/* Número ND */}
+              <EditableField
+                label="N° ND"
+                value={editedSinistro?.numero_nd || ''}
+                isEditing={isEditing}
+                onChange={(v) => handleEditChange('numero_nd', v)}
+                isDark={isDark}
+              />
+
+              {/* Data Vencimento ND */}
+              <EditableField
+                label="Data Vencimento ND"
+                value={
+                  isEditing
+                    ? formatarDataParaInput(editedSinistro?.data_vencimento_nd)
+                    : formatarData(editedSinistro?.data_vencimento_nd)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'date' : 'text'}
+                onChange={(v) => handleEditChange('data_vencimento_nd', v)}
+                isDark={isDark}
+              />
+
+              {/* Status do Pagamento */}
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Status do Pagamento
+                </label>
+                {isEditing ? (
+                  <select
+                    value={editedSinistro?.status_pagamento || 'Aguardando lançamento'}
+                    onChange={(e) => handleEditChange('status_pagamento', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
+                    <option value="Aguardando lançamento">Aguardando lançamento</option>
+                    <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+                    <option value="Pago">Pago</option>
+                  </select>
+                ) : (
+                  <span
+                    className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusPagamentoColor(
+                      editedSinistro?.status_pagamento
+                    )}`}
+                  >
+                    {editedSinistro?.status_pagamento || 'Aguardando lançamento'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* ==================== INDENIZAÇÕES ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Indenizações</h3>
+              
+              {/* Responsável pela Avaria */}
+              <EditableField
+                label="Responsável pela Avaria"
+                value={editedSinistro?.responsavel_avaria || ''}
+                isEditing={isEditing}
+                type="select"
+                options={[
+                  { value: '', label: 'Selecione...' },
+                  { value: 'Transportadora', label: 'Transportadora' },
+                  { value: 'Seguradora', label: 'Seguradora' },
+                  { value: 'Terceiros', label: 'Terceiros' },
+                  { value: 'Cliente', label: 'Cliente' },
+                  { value: 'Outros', label: 'Outros' }
+                ]}
+                onChange={(v) => handleEditChange('responsavel_avaria', v)}
+                isDark={isDark}
+              />
+
+              {/* Indenizado */}
+              <EditableField
+                label="Indenizado?"
+                value={editedSinistro?.indenizado || 'Não'}
+                isEditing={isEditing}
+                type="select"
+                options={[
+                  { value: 'Não', label: 'Não' },
+                  { value: 'Sim', label: 'Sim' }
+                ]}
+                onChange={(v) => handleEditChange('indenizado', v)}
+                isDark={isDark}
+              />
+
+              {/* Status da Indenização */}
+              <div className="mb-4">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDark ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Status da Indenização
+                </label>
+                {isEditing ? (
+                  <select
+                    value={editedSinistro?.status_indenizacao || 'Em aberto'}
+                    onChange={(e) => handleEditChange('status_indenizacao', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
+                    <option value="Em aberto">Em aberto</option>
+                    <option value="Pago">Pago</option>
+                  </select>
+                ) : (
+                  <span
+                    className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusIndenizacaoColor(
+                      editedSinistro?.status_indenizacao
+                    )}`}
+                  >
+                    {editedSinistro?.status_indenizacao || 'Em aberto'}
+                  </span>
+                )}
+              </div>
+
+              {/* Programação de Pagamento (apenas se indenizado = Sim) */}
+              {editedSinistro?.indenizado === 'Sim' && (
+                <ProgramacaoPagamento
+                  label="Programação de Pagamento (até 10 datas)"
+                  values={editedSinistro.programacao_pagamento_indenizacao || ['']}
+                  isEditing={isEditing}
+                  onChange={(v) => handleEditChange('programacao_pagamento_indenizacao', v)}
+                  isDark={isDark}
+                />
+              )}
+            </div>
+
+            {/* ==================== SALVADOS ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Salvados</h3>
+              
+              {/* Valor Vendido */}
+              <EditableField
+                label="Valor Vendido"
+                value={
+                  isEditing
+                    ? editedSinistro?.valor_vendido || 0
+                    : formatarMoeda(editedSinistro?.valor_vendido || 0)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'number' : 'text'}
+                step={isEditing ? '0.01' : undefined}
+                onChange={(v) => handleEditChange('valor_vendido', parseFloat(v) || 0)}
+              isDark={isDark}
+              />
+
+              {/* Responsável pela Compra */}
+              <EditableField
+                label="Responsável pela Compra"
+                value={editedSinistro?.responsavel_compra || ''}
+                isEditing={isEditing}
+                onChange={(v) => handleEditChange('responsavel_compra', v)}
+                isDark={isDark}
+              />
+
+              {/* Programação de Pagamento */}
+              <EditableField
+                label="Programação de Pagamento"
+                value={editedSinistro?.programacao_pagamento_salvados || ''}
+                isEditing={isEditing}
+                onChange={(v) => handleEditChange('programacao_pagamento_salvados', v)}
+                isDark={isDark}
+              />
+
+              {/* Valor da Venda */}
+              <EditableField
+                label="Valor da Venda"
+                value={
+                  isEditing
+                    ? editedSinistro?.valor_venda || 0
+                    : formatarMoeda(editedSinistro?.valor_venda || 0)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'number' : 'text'}
+                step={isEditing ? '0.01' : undefined}
+                onChange={(v) => handleEditChange('valor_venda', parseFloat(v) || 0)}
+                isDark={isDark}
+              />
+
+              {/* Percentual de Desconto */}
+              <EditableField
+                label="% de Desconto"
+                value={editedSinistro?.percentual_desconto || 0}
+                isEditing={isEditing}
+                type="number"
+                step="0.01"
+                onChange={(v) => handleEditChange('percentual_desconto', parseFloat(v) || 0)}
+                isDark={isDark}
+              />
+            </div>
+
+            {/* ==================== USO INTERNO ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Uso Interno</h3>
+              
+              {/* Data da Liberação */}
+              <EditableField
+                label="Data da Liberação"
+                value={
+                  isEditing
+                    ? formatarDataParaInput(editedSinistro?.data_liberacao)
+                    : formatarData(editedSinistro?.data_liberacao)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'date' : 'text'}
+                onChange={(v) => handleEditChange('data_liberacao', v)}
+                isDark={isDark}
+              />
+
+              {/* Responsável pela Liberação */}
+              <EditableField
+                label="Responsável pela Liberação"
+                value={editedSinistro?.responsavel_liberacao || ''}
+                isEditing={isEditing}
+                onChange={(v) => handleEditChange('responsavel_liberacao', v)}
+                isDark={isDark}
+              />
+
+              {/* Valor Liberado */}
+              <EditableField
+                label="Valor Liberado"
+                value={
+                  isEditing
+                    ? editedSinistro?.valor_liberado || 0
+                    : formatarMoeda(editedSinistro?.valor_liberado || 0)
+                }
+                isEditing={isEditing}
+                type={isEditing ? 'number' : 'text'}
+                step={isEditing ? '0.01' : undefined}
+                onChange={(v) => handleEditChange('valor_liberado', parseFloat(v) || 0)}
+                isDark={isDark}
+              />
+            </div>
+
+            {/* ==================== ACIONAMENTO JURÍDICO ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Acionamento Jurídico</h3>
+              
+              {/* Acionamento Jurídico */}
+              <EditableField
+                label="Acionamento Jurídico?"
+                value={editedSinistro?.acionamento_juridico || 'Não'}
+                isEditing={isEditing}
+                type="select"
+                options={[
+                  { value: 'Não', label: 'Não' },
+                  { value: 'Sim', label: 'Sim' }
+                ]}
+                onChange={(v) => handleEditChange('acionamento_juridico', v)}
+                isDark={isDark}
+              />
+
+              {/* Campos adicionais se acionamento jurídico = Sim */}
+              {editedSinistro?.acionamento_juridico === 'Sim' && (
+                <>
+                                      <EditableField
+                      label="Data de Abertura do Sinistro"
+                      value={
+                        isEditing
+                          ? formatarDataParaInput(editedSinistro?.data_abertura_juridico)
+                          : formatarData(editedSinistro?.data_abertura_juridico)
+                      }
+                      isEditing={isEditing}
+                      type={isEditing ? 'date' : 'text'}
+                      onChange={(v) => handleEditChange('data_abertura_juridico', v)}
+                      isDark={isDark}
+                    />
+
+                    <EditableField
+                      label="Custas Jurídicas"
+                      value={
+                        isEditing
+                          ? editedSinistro?.custas_juridicas || 0
+                          : formatarMoeda(editedSinistro?.custas_juridicas || 0)
+                      }
+                      isEditing={isEditing}
+                      type={isEditing ? 'number' : 'text'}
+                      step={isEditing ? '0.01' : undefined}
+                      onChange={(v) => handleEditChange('custas_juridicas', parseFloat(v) || 0)}
+                      isDark={isDark}
+                    />
+                </>
+              )}
+            </div>
+
+            {/* ==================== ACIONAMENTO SEGURADORA ==================== */}
+            <div className={`border-t my-6 pt-6 ${
+              isDark ? 'border-gray-600' : 'border-gray-300'
+            }`}>
+              <h3 className={`text-lg font-semibold mb-4 ${
+                isDark ? 'text-white' : 'text-gray-900'
+              }`}>Acionamento Seguradora</h3>
+              
+              {/* Acionamento Seguradora */}
+              <EditableField
+                label="Acionamento Seguradora?"
+                value={editedSinistro?.acionamento_seguradora || 'Não'}
+                isEditing={isEditing}
+                type="select"
+                options={[
+                  { value: 'Não', label: 'Não' },
+                  { value: 'Sim', label: 'Sim' }
+                ]}
+                onChange={(v) => handleEditChange('acionamento_seguradora', v)}
+                isDark={isDark}
+              />
+
+              {/* Campos adicionais se acionamento seguradora = Sim */}
+              {editedSinistro?.acionamento_seguradora === 'Sim' && (
+                <>
+                  <EditableField
+                    label="Data de Abertura do Sinistro"
+                    value={
+                      isEditing
+                        ? formatarDataParaInput(editedSinistro?.data_abertura_seguradora)
+                        : formatarData(editedSinistro?.data_abertura_seguradora)
+                    }
+                    isEditing={isEditing}
+                    type={isEditing ? 'date' : 'text'}
+                    onChange={(v) => handleEditChange('data_abertura_seguradora', v)}
+                    isDark={isDark}
+                  />
+
+                  <EditableField
+                    label="Seguradora"
+                    value={editedSinistro?.seguradora || ''}
+                    isEditing={isEditing}
+                    onChange={(v) => handleEditChange('seguradora', v)}
+                    isDark={isDark}
+                  />
+
+                  <EditableField
+                    label="Programação de Indenização"
+                    value={editedSinistro?.programacao_indenizacao || ''}
+                    isEditing={isEditing}
+                    onChange={(v) => handleEditChange('programacao_indenizacao', v)}
+                    isDark={isDark}
+                  />
+                </>
               )}
             </div>
 
             {/* Botões de ação */}
             {isEditing && (
-              <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
+              <div className={`flex gap-3 mt-6 pt-4 border-t ${
+                isDark ? 'border-gray-600' : 'border-gray-200'
+              }`}>
                 <button
                   onClick={salvarEdicao}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white
@@ -751,8 +1300,11 @@ const SinistrosPage = () => {
 
                 <button
                   onClick={cancelarEdicao}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700
-                             rounded-lg hover:bg-gray-300 transition-colors"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    isDark 
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
                 >
                   <X size={16} />
                   Cancelar
@@ -769,50 +1321,70 @@ const SinistrosPage = () => {
 /* --------------------------------------------------------------------- *
  * Componentes auxiliares
  * --------------------------------------------------------------------- */
-const Th = ({ children }) => (
-  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+const Th = ({ children, isDark = false }) => (
+  <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+    isDark ? 'text-gray-300' : 'text-gray-500'
+  }`}>
     {children}
   </th>
 );
 
-const Td = ({ children, bold = false }) => (
+const Td = ({ children, bold = false, isDark = false }) => (
   <td
     className={`px-6 py-4 whitespace-nowrap text-sm ${
       bold ? 'font-medium' : ''
-    } text-gray-900`}
+    } ${isDark ? 'text-gray-200' : 'text-gray-900'}`}
   >
     {children}
   </td>
 );
 
-const Card = ({ label, value, Icon, iconClass = '', valueClass = '' }) => (
-  <div className="bg-white rounded-lg p-6 shadow-md">
+const Card = ({ label, value, Icon, iconClass = '', valueClass = '', isDark = false }) => (
+  <div className={`rounded-lg p-6 shadow-md ${
+    isDark ? 'bg-gray-800' : 'bg-white'
+  }`}>
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-gray-600">{label}</p>
-        <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
+        <p className={`text-sm ${
+          isDark ? 'text-gray-400' : 'text-gray-600'
+        }`}>{label}</p>
+        <p className={`text-2xl font-bold ${valueClass} ${
+          isDark && !valueClass ? 'text-white' : ''
+        }`}>{value}</p>
       </div>
       <Icon className={iconClass} size={32} />
     </div>
   </div>
 );
 
-const Modal = ({ children, onClose }) => (
+const Modal = ({ children, onClose, isDark = false }) => (
   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-      <div className="p-6 border-b border-gray-200 flex justify-end">
+    <div className={`rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto ${
+      isDark ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <div className={`p-6 border-b flex justify-end ${
+        isDark ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-xl"
+          className={`text-xl ${
+            isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-gray-600'
+          }`}
         >
           ✕
         </button>
       </div>
       <div className="p-6">{children}</div>
-      <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+      <div className={`px-6 py-4 border-t flex justify-end ${
+        isDark ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <button
           onClick={onClose}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            isDark 
+              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
         >
           Fechar
         </button>
@@ -829,9 +1401,12 @@ const EditableField = ({
   options = [],
   onChange,
   step,
+  isDark = false,
 }) => (
   <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-2">
+    <label className={`block text-sm font-medium mb-2 ${
+      isDark ? 'text-gray-300' : 'text-gray-700'
+    }`}>
       {label}
     </label>
 
@@ -840,8 +1415,11 @@ const EditableField = ({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                     focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-white' 
+              : 'bg-white border-gray-300 text-gray-900'
+          }`}
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>
@@ -849,20 +1427,193 @@ const EditableField = ({
             </option>
           ))}
         </select>
+      ) : type === 'textarea' ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={4}
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+          }`}
+        />
       ) : (
         <input
           type={type}
           value={value}
           step={step}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                     focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+          }`}
         />
       )
     ) : (
-      <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">{value}</p>
+      <p className={`text-sm p-3 rounded-lg ${
+        isDark 
+          ? 'text-gray-200 bg-gray-700' 
+          : 'text-gray-900 bg-gray-50'
+      }`}>{value}</p>
     )}
   </div>
 );
+
+const ProgramacaoPagamento = ({ label, values = [''], isEditing, onChange, isDark = false }) => {
+  const formatarDataLocal = (data) =>
+    data ? new Date(data).toLocaleDateString('pt-BR') : '';
+
+  const formatarDataCompleta = (data) => {
+    if (!data) return '';
+    const date = new Date(data);
+    return date.toLocaleDateString('pt-BR', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const getDiasRestantes = (data) => {
+    if (!data) return null;
+    const hoje = new Date();
+    const dataTarget = new Date(data);
+    const diffTime = dataTarget - hoje;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getStatusData = (data) => {
+    const dias = getDiasRestantes(data);
+    if (dias === null) return { color: 'bg-gray-100 text-gray-800', text: '' };
+    if (dias < 0) return { color: 'bg-red-100 text-red-800', text: `${Math.abs(dias)} dias em atraso` };
+    if (dias === 0) return { color: 'bg-yellow-100 text-yellow-800', text: 'Hoje' };
+    if (dias <= 7) return { color: 'bg-orange-100 text-orange-800', text: `${dias} dias` };
+    return { color: 'bg-green-100 text-green-800', text: `${dias} dias` };
+  };
+
+  // Garantir que values é sempre um array
+  const safeValues = Array.isArray(values) ? values : [''];
+
+  const addData = () => {
+    if (safeValues.length < 10) {
+      onChange([...safeValues, '']);
+    }
+  };
+
+  const removeData = (index) => {
+    onChange(safeValues.filter((_, i) => i !== index));
+  };
+
+  const updateData = (index, value) => {
+    const newValues = [...safeValues];
+    newValues[index] = value;
+    onChange(newValues);
+  };
+
+  return (
+    <div className="mb-4">
+      <label className={`block text-sm font-medium mb-2 ${
+        isDark ? 'text-gray-300' : 'text-gray-700'
+      }`}>
+        {label}
+      </label>
+      
+      {isEditing ? (
+        <div className="space-y-2">
+          {safeValues.map((data, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="date"
+                value={data}
+                onChange={(e) => updateData(index, e.target.value)}
+                className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  isDark 
+                    ? 'bg-gray-700 border-gray-600 text-white' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                }`}
+              />
+              {safeValues.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeData(index)}
+                  className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+          
+          {safeValues.length < 10 && (
+            <button
+              type="button"
+              onClick={addData}
+              className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              + Adicionar Data
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className={`p-3 rounded-lg ${
+          isDark ? 'bg-gray-700' : 'bg-gray-50'
+        }`}>
+          {safeValues.filter(v => v).length > 0 ? (
+            <div className="space-y-3">
+              {safeValues.filter(v => v).map((data, index) => {
+                const status = getStatusData(data);
+                return (
+                  <div key={index} className={`flex items-center justify-between p-3 rounded-lg border shadow-sm ${
+                    isDark 
+                      ? 'bg-gray-800 border-gray-600' 
+                      : 'bg-white border-gray-200'
+                  }`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full ${
+                          isDark 
+                            ? 'bg-blue-600 text-blue-100' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <div>
+                          <p className={`text-sm font-semibold ${
+                            isDark ? 'text-gray-200' : 'text-gray-900'
+                          }`}>
+                            {formatarDataLocal(data)}
+                          </p>
+                          <p className={`text-xs ${
+                            isDark ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            {formatarDataCompleta(data)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {status.text && (
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${status.color}`}>
+                        {status.text}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className={`text-sm text-center py-4 ${
+              isDark ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              📅 Nenhuma data programada
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default SinistrosPage;

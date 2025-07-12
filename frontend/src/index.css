@@ -1,0 +1,632 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Configurações base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* Modo escuro suave */
+.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-color: #475569;
+  --border-light: #64748b;
+}
+
+/* Modo claro */
+.light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --border-light: #cbd5e1;
+}
+
+/* Estilos de texto universais */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+p, span, div {
+  color: var(--text-secondary);
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* Animações suaves */
+.transition-all {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Backdrop blur melhorado */
+.backdrop-blur-ultra {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Bordas suaves */
+.border-soft {
+  border-color: var(--border-color);
+  border-opacity: 0.3;
+}
+
+/* Sombras suaves */
+.shadow-soft {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-soft-dark {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Inputs e botões */
+input, select, textarea {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+button {
+  color: var(--text-primary) !important;
+}
+
+/* Tabelas */
+table {
+  background-color: var(--bg-secondary);
+}
+
+th {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-tertiary);
+}
+
+td {
+  color: var(--text-secondary) !important;
+  border-color: var(--border-color);
+}
+
+/* Cards e containers */
+.card {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  border-radius: 1rem;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-effect {
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+/* Melhorias específicas para o modo escuro */
+.dark body {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  color: #f1f5f9;
+}
+
+.dark .text-black {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+/* Correções específicas para títulos */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f1f5f9 !important;
+}
+
+/* ULTRATHINK Dark Mode Title Fixes - Maximum Specificity */
+.dark header h1,
+.dark header h2,
+.dark header h3,
+.dark .professional-header h1,
+.dark .professional-header h2,
+.dark .professional-header h3,
+.dark [class*="Header"] h1,
+.dark [class*="Header"] h2,
+.dark [class*="Header"] h3 {
+  color: white !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+/* ULTRATHINK Title Class - Ultimate Specificity */
+.ultrathink-title {
+  color: inherit;
+}
+
+.dark .ultrathink-title,
+.dark .ultrathink-title.text-white,
+html.dark .ultrathink-title,
+body.dark .ultrathink-title,
+[class~="dark"] .ultrathink-title {
+  color: white !important;
+  color: rgb(255, 255, 255) !important;
+  color: #ffffff !important;
+}
+
+/* Force override any conflicting styles */
+.dark .ultrathink-title[style] {
+  color: white !important;
+}
+
+/* Force white color on all elements that might be titles */
+.dark .text-2xl.font-bold,
+.dark .text-3xl.font-bold,
+.dark .text-4xl.font-bold,
+.dark .text-xl.font-bold,
+.dark .text-lg.font-bold {
+  color: white !important;
+}
+
+/* Override any inline styles or conflicting classes */
+.dark [style*="color: black"],
+.dark [style*="color: #000"],
+.dark [style*="color: rgb(0"] {
+  color: white !important;
+}
+
+/* Ensure proper inheritance */
+.dark * {
+  color: inherit;
+}
+
+/* Reset for specific text colors in dark mode */
+.dark .text-gray-900,
+.dark .text-slate-900,
+.dark .text-zinc-900,
+.dark .text-neutral-900,
+.dark .text-stone-900 {
+  color: white !important;
+}
+
+.dark .font-bold {
+  color: #f1f5f9 !important;
+}
+
+.dark .font-semibold {
+  color: #e2e8f0 !important;
+}
+
+.dark .font-medium {
+  color: #cbd5e1 !important;
+}
+
+/* Melhorias para links */
+.dark a {
+  color: #60a5fa !important;
+}
+
+.dark a:hover {
+  color: #93c5fd !important;
+}
+
+/* Melhorias para badges e labels */
+.dark .badge {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Melhorias para modais e dropdowns */
+.dark .modal, .dark .dropdown {
+  background-color: rgba(15, 23, 42, 0.95);
+  border-color: rgba(71, 85, 105, 0.5);
+  backdrop-filter: blur(20px);
+}
+
+/* Melhorias para o estado de loading */
+.dark .loading {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Melhorias para alertas */
+.dark .alert-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.dark .alert-success {
+  background-color: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.dark .alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.dark .alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .card {
+    border-radius: 0.5rem;
+  }
+}
+
+/* Melhorias para performance */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Acessibilidade */
+.focus-visible:focus {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* Correções específicas para componentes */
+.dark .metric-card {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(71, 85, 105, 0.3);
+}
+
+.dark .sidebar {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+.dark .header {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+/* Melhorias para gráficos e visualizações */
+.dark .chart-container {
+  background: rgba(15, 23, 42, 0.3);
+  border-color: rgba(71, 85, 105, 0.3);
+}
+
+.dark .chart-text {
+  fill: #f1f5f9 !important;
+}
+
+.dark .chart-axis {
+  stroke: #64748b !important;
+}
+
+/* Estilos para impressão */
+@media print {
+  .dark {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .dark * {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* ULTRATHINK Data-theme based styling for reliability */
+[data-theme="dark"] {
+  color: white !important;
+}
+
+[data-theme="light"] {
+  color: #111827 !important;
+}
+
+/* Override any Tailwind classes that might interfere */
+h1[style*="color"] {
+  color: inherit !important;
+}
+
+/* Ensure proper text color inheritance in dark mode */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark .text-2xl.font-bold,
+.dark .ultrathink-title {
+  color: white !important;
+}
+
+/* Light mode text colors */
+:not(.dark) h1,
+:not(.dark) h2,
+:not(.dark) h3,
+:not(.dark) h4,
+:not(.dark) h5,
+:not(.dark) h6,
+:not(.dark) .text-2xl.font-bold,
+:not(.dark) .ultrathink-title {
+  color: #111827 !important;
+}
+
+/* ULTRATHINK Title Class - Ultimate Specificity */
+.ultrathink-title {
+  color: inherit;
+}
+
+.dark .ultrathink-title,
+.dark .ultrathink-title.text-white,
+html.dark .ultrathink-title,
+body.dark .ultrathink-title,
+[class~="dark"] .ultrathink-title {
+  color: white !important;
+  color: rgb(255, 255, 255) !important;
+  color: #ffffff !important;
+}
+
+/* Force override any conflicting styles */
+.dark .ultrathink-title[style] {
+  color: white !important;
+}
+
+/* Force white color on all elements that might be titles */
+.dark .text-2xl.font-bold,
+.dark .text-3xl.font-bold,
+.dark .text-4xl.font-bold,
+.dark .text-xl.font-bold,
+.dark .text-lg.font-bold {
+  color: white !important;
+}
+
+/* Override any inline styles or conflicting classes */
+.dark [style*="color: black"],
+.dark [style*="color: #000"],
+.dark [style*="color: rgb(0"] {
+  color: white !important;
+}
+
+/* Ensure proper inheritance */
+.dark * {
+  color: inherit;
+}
+
+/* Reset for specific text colors in dark mode */
+.dark .text-gray-900,
+.dark .text-slate-900,
+.dark .text-zinc-900,
+.dark .text-neutral-900,
+.dark .text-stone-900 {
+  color: white !important;
+}
+
+.dark .font-bold {
+  color: #f1f5f9 !important;
+}
+
+.dark .font-semibold {
+  color: #e2e8f0 !important;
+}
+
+.dark .font-medium {
+  color: #cbd5e1 !important;
+}
+
+/* Melhorias para links */
+.dark a {
+  color: #60a5fa !important;
+}
+
+.dark a:hover {
+  color: #93c5fd !important;
+}
+
+/* Melhorias para badges e labels */
+.dark .badge {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Melhorias para modais e dropdowns */
+.dark .modal, .dark .dropdown {
+  background-color: rgba(15, 23, 42, 0.95);
+  border-color: rgba(71, 85, 105, 0.5);
+  backdrop-filter: blur(20px);
+}
+
+/* Melhorias para o estado de loading */
+.dark .loading {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Melhorias para alertas */
+.dark .alert-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.dark .alert-success {
+  background-color: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+.dark .alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.dark .alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .card {
+    border-radius: 0.5rem;
+  }
+}
+
+/* Melhorias para performance */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+/* Acessibilidade */
+.focus-visible:focus {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* Correções específicas para componentes */
+.dark .metric-card {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(71, 85, 105, 0.3);
+}
+
+.dark .sidebar {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+.dark .header {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+/* Melhorias para gráficos e visualizações */
+.dark .chart-container {
+  background: rgba(15, 23, 42, 0.3);
+  border-color: rgba(71, 85, 105, 0.3);
+}
+
+.dark .chart-text {
+  fill: #f1f5f9 !important;
+}
+
+.dark .chart-axis {
+  stroke: #64748b !important;
+}
+
+/* Estilos para impressão */
+@media print {
+  .dark {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .dark * {
+    background: white !important;
+    color: black !important;
+  }
+} 

@@ -38,12 +38,12 @@ class SinistroRepository:
                RTRIM(OCO.ds_Ocorrencia)       AS [Ocorrência],
                RTRIM(OCN.ds_Ocorrencia)       AS [Compl. Ocorrência],
                TRIM(ULTOCO.ds_Ocorrencia)     AS [ULTIMA OCORRENCIA],
-               MOV.nr_Referencia              AS [REFERENCIA],
-               OCN.dt_PrazoFechamento         AS [Data Ocorrência],
-               OCN.dt_Abertura                AS [Data Cadastro],
-               OCN.hr_Abertura                AS [Hora Cadastro],
-               OCN.dt_Alteracao               AS [Data Alteração],
-               OCN.hr_Alteracao               AS [Hora Alteração]
+               MOV.nr_Referencia              AS [REFERENCIA]
+            #    OCN.dt_PrazoFechamento         AS [Data Ocorrência],
+            #    OCN.dt_Abertura                AS [Data Cadastro],
+            #    OCN.hr_Abertura                AS [Hora Cadastro],
+            #    OCN.dt_Alteracao               AS [Data Alteração],
+            #    OCN.hr_Alteracao               AS [Hora Alteração]
         FROM   tbdOcorrenciaNota          OCN   WITH (NOLOCK)
         INNER  JOIN tbdOcorrencia         OCO   WITH (NOLOCK) ON OCN.id_Ocorrencia  = OCO.id_Ocorrencia
         INNER  JOIN tbdMovimento          MOV   WITH (NOLOCK) ON OCN.id_Movimento   = MOV.id_Movimento

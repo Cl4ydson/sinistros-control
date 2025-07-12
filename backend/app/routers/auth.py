@@ -6,18 +6,16 @@ from ..schemas.user import UserCreate, UserResponse, UserLogin, Token
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from typing import Optional
-import logging
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Configurações de segurança
 SECRET_KEY = "sua_chave_secreta_aqui"  # Em produção, use variável de ambiente
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(              
+    prefix="/auth",
+    tags=["auth"]
+)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -31,11 +29,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 @router.post("/register/", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    logger.info(f"Tentativa de registro para login: {user.login}")
-    
     # Verifica se o login já existe
     if db.query(models.user.User).filter_by(login=user.login).first():
-        logger.warning(f"Login já existe: {user.login}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Login já cadastrado"
@@ -43,7 +38,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     
     # Verifica se o email já existe
     if db.query(models.user.User).filter_by(email=user.email).first():
-        logger.warning(f"Email já existe: {user.email}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email já cadastrado"
@@ -57,52 +51,26 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.add(novo)
         db.commit()
         db.refresh(novo)
-        logger.info(f"Usuário criado com sucesso: {novo.login}")
         return novo
     except Exception as e:
-        logger.error(f"Erro ao criar usuário: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erro ao criar usuário"
         )
 
-@router.post("/login", response_model=Token)
+@router.post("/login/", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    logger.info(f"Tentativa de login para: {user_data.login}")
-    
-    try:
-        user = db.query(models.user.User).filter_by(login=user_data.login).first()
-        
-        if not user:
-            logger.warning(f"Usuário não encontrado: {user_data.login}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Login ou senha incorretos",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        if not user.verify_password(user_data.senha):
-            logger.warning(f"Senha incorreta para usuário: {user_data.login}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Login ou senha incorretos",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.login}, expires_delta=access_token_expires
-        )
-        
-        logger.info(f"Login bem-sucedido para: {user_data.login}")
-        return {"access_token": access_token, "token_type": "bearer"}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Erro interno no login: {str(e)}")
+    user = db.query(models.user.User).filter_by(login=user_data.login).first()
+    if not user or not user.verify_password(user_data.senha):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Login ou senha incorretos",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.login}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}

@@ -1,10 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from ..database import Base
 from passlib.context import CryptContext
-import logging
-
-# Configurar logging
-logger = logging.getLogger(__name__)
 
 # Configuração para hash de senha
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -21,32 +17,10 @@ class User(Base):
 
     def set_password(self, password: str):
         """Define a senha com hash"""
-        try:
-            self.senha = pwd_context.hash(password)
-            logger.info(f"Senha definida para usuário: {self.login}")
-        except Exception as e:
-            logger.error(f"Erro ao definir senha para {self.login}: {str(e)}")
-            raise
-
+        self.senha = pwd_context.hash(password)
+    
     def verify_password(self, password: str) -> bool:
         """Verifica se a senha está correta"""
-        try:
-            # Debug: mostrar informações sobre a verificação
-            logger.info(f"Verificando senha para usuário: {self.login}")
-            logger.debug(f"Senha fornecida: {password[:3]}***")  # Apenas primeiros 3 chars
-            logger.debug(f"Hash armazenado: {self.senha[:20]}...")  # Apenas início do hash
-            
-            ok = pwd_context.verify(password, self.senha)
-            
-            logger.info(f"Resultado verificação senha '{self.login}': {ok}")
-            print(f"DEBUG - Verificando senha '{self.login}': {ok}")  # Manter o print para debug imediato
-            
-            return ok
-            
-        except Exception as e:
-            logger.error(f"Erro ao verificar senha para {self.login}: {str(e)}")
-            print(f"ERRO - Verificação senha '{self.login}': {str(e)}")
+        if self.senha is None:
             return False
-
-    def __repr__(self):
-        return f"<User(id={self.id}, login='{self.login}', nome='{self.nome}')>"
+        return pwd_context.verify(password, str(self.senha))
