@@ -4,7 +4,7 @@ from typing import List
 from datetime import date
 
 from ..database import get_db
-from ..models.sinistro import SinistroView as Sinistro
+from ..models.sinistro import SinistroView
 from ..schemas.sinistro import SinistroOut
 from ..core.auth import get_current_user
 
@@ -20,16 +20,16 @@ def list_sinistros(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        q = db.query(Sinistro)
+        q = db.query(SinistroView)
         
         if dt_ini:
-            q = q.filter(Sinistro.data_evento >= dt_ini)
+            q = q.filter(SinistroView.data_evento >= dt_ini)
         if dt_fim:
-            q = q.filter(Sinistro.data_evento <= dt_fim)
+            q = q.filter(SinistroView.data_evento <= dt_fim)
         if modal:
-            q = q.filter(Sinistro.modal == modal)
+            q = q.filter(SinistroView.modal == modal)
         if cliente:
-            q = q.filter(Sinistro.cliente.ilike(f"%{cliente}%"))
+            q = q.filter(SinistroView.cliente.ilike(f"%{cliente}%"))
             
         return q.all()
     except Exception as e:

@@ -10,7 +10,9 @@ from ..repositories.sinistro_repository_pyodbc import SinistroRepositoryPyODBC
 from ..schemas.sinistro_automacao import (
     SinistroAutomacaoCreate,
     SinistroAutomacaoUpdate,
-    SinistroAutomacaoResponse
+    SinistroAutomacaoOut,
+    SinistroAutomacaoResumo,
+    EstatisticasSinistros
 )
 from ..models.sinistro_automacao import SinistroAutomacao
 
@@ -18,363 +20,275 @@ logger = logging.getLogger(__name__)
 
 class SinistroAutomacaoService:
     """
-    Service para gerenciar sinistros na tabela eSinistros do banco AUTOMACAO_BRSAMOR
-    Com fallback para banco de consulta quando necessário
+    Service para gerenciar sinistros na tabela AUTOMACAO_BRSAMOR
+    Inclui sincronização automática com banco origem e UPSERT
     """
     
     def __init__(self, db: Session):
         self.db = db
         self.repo = SinistroAutomacaoRepository(db)
-        self.repo_origem = SinistroRepositoryPyODBC()  # Fallback para banco consulta
+        self.repo_origem = SinistroRepositoryPyODBC()  # Para buscar dados do banco origem
     
-    def buscar_sinistro(self, sinistro_id: int) -> Optional[Dict]:
+    def sincronizar_sinistro_do_banco_origem(
+        self, 
+        nota_fiscal: str, 
+        nr_conhecimento: Optional[str], 
+        usuario: str
+    ) -> Tuple[SinistroAutomacaoOut, bool]:
         """
-        Busca sinistro por ID com fallback
+        Sincroniza um sinistro específico do banco origem para AUTOMACAO_BRSAMOR
+        Retorna: (sinistro, foi_criado)
         """
         try:
-            logger.info(f"Buscando sinistro {sinistro_id} na tabela eSinistros")
+            # Buscar dados no banco origem
+            dados_origem = self.repo_origem.buscar_sinistro_por_id(nota_fiscal, nr_conhecimento or "")
             
-            # Tentar buscar na tabela eSinistros
-            if self.repo.verificar_tabela_existe():
-                sinistro = self.repo.buscar_por_id(sinistro_id)
-                if sinistro:
-                    logger.info(f"Sinistro {sinistro_id} encontrado na tabela eSinistros")
-                    return sinistro.to_dict()
+            if not dados_origem:
+                raise ValueError(f"Sinistro não encontrado no banco origem: {nota_fiscal}/{nr_conhecimento}")
             
-            # Fallback: buscar no banco de consulta
-            logger.info(f"Fallback: buscando sinistro no banco de consulta")
-            return self._buscar_no_banco_consulta(sinistro_id)
+            # Converter dados do banco origem para schema de criação
+            dados_criacao = self._converter_dados_origem(dados_origem)
+            
+            # Fazer UPSERT
+            sinistro, foi_criado = self.repo.criar_ou_atualizar(dados_criacao, usuario)
+            
+            logger.info(f"Sinistro {'criado' if foi_criado else 'atualizado'}: {nota_fiscal}")
+            
+            return SinistroAutomacaoOut.from_orm(sinistro), foi_criado
             
         except Exception as e:
-            logger.error(f"Erro ao buscar sinistro {sinistro_id}: {e}")
-            return self._buscar_no_banco_consulta(sinistro_id)
+            logger.error(f"Erro ao sincronizar sinistro: {e}")
+            raise
     
-    def _buscar_no_banco_consulta(self, sinistro_id: int) -> Optional[Dict]:
+    def _converter_dados_origem(self, dados_origem: Dict) -> SinistroAutomacaoCreate:
+        """Converte dados do banco origem para schema de criação"""
+        
+        return SinistroAutomacaoCreate(
+            nota_fiscal=dados_origem.get('Nota Fiscal', ''),
+            nr_conhecimento=dados_origem.get('Minu.Conh'),
+            remetente=dados_origem.get('Remetente'),
+            destinatario=dados_origem.get('Destinatário'),
+            cliente=dados_origem.get('Cliente'),  # Pode não existir na origem
+            modal=dados_origem.get('Modal', 'Rodoviário'),
+            
+            # Datas
+            dt_coleta=self._converter_data(dados_origem.get('Data Coleta')),
+            dt_prazo_entrega=self._converter_data(dados_origem.get('Prazo Entrega')),
+            dt_entrega_real=self._converter_data(dados_origem.get('Data Entrega')),
+            dt_agendamento=self._converter_data(dados_origem.get('Data Agendamento')),
+            dt_ocorrencia=self._converter_data(dados_origem.get('Data Ocorrência')),
+            dt_cadastro=self._converter_data(dados_origem.get('Data Cadastro')),
+            hr_cadastro=str(dados_origem.get('Hora Cadastro', ''))[:8] if dados_origem.get('Hora Cadastro') else None,
+            dt_alteracao=self._converter_data(dados_origem.get('Data Alteração')),
+            hr_alteracao=str(dados_origem.get('Hora Alteração', ''))[:8] if dados_origem.get('Hora Alteração') else None,
+            
+            # Ocorrências
+            tipo_ocorrencia=dados_origem.get('Ocorrência'),
+            descricao_ocorrencia=dados_origem.get('Compl. Ocorrência'),
+            ultima_ocorrencia=dados_origem.get('ULTIMA OCORRENCIA'),
+            referencia=dados_origem.get('REFERENCIA'),
+            
+            # Valor
+            valor_mercadoria=self._converter_decimal(dados_origem.get('Valor Mercadoria', 0))
+        )
+    
+    def _converter_data(self, data_valor) -> Optional[date]:
+        """Converte valores de data para objeto date"""
+        if not data_valor:
+            return None
+        
+        if isinstance(data_valor, date):
+            return data_valor
+        
+        if isinstance(data_valor, datetime):
+            return data_valor.date()
+        
+        # Tentar converter string
+        try:
+            if isinstance(data_valor, str):
+                return datetime.strptime(data_valor, '%Y-%m-%d').date()
+        except:
+            pass
+        
+        return None
+    
+    def _converter_decimal(self, valor) -> Decimal:
+        """Converte valores para Decimal"""
+        if valor is None:
+            return Decimal('0')
+        
+        try:
+            return Decimal(str(valor))
+        except:
+            return Decimal('0')
+    
+    def sincronizar_multiplos_sinistros(
+        self, 
+        filtros: Dict, 
+        usuario: str,
+        limite: int = 100
+    ) -> Dict:
         """
-        Busca sinistro no banco de consulta como fallback
+        Sincroniza múltiplos sinistros do banco origem
         """
         try:
-            # Simular busca baseada no ID
-            sinistros = self.repo_origem.listar_sinistros()
+            # Buscar sinistros no banco origem
+            sinistros_origem = self.repo_origem.listar_sinistros(**filtros)
             
-            if sinistros and len(sinistros) >= sinistro_id:
-                dados_origem = sinistros[sinistro_id - 1]
-                
-                # Converter para formato padrão
+            if not sinistros_origem:
                 return {
-                    'id': sinistro_id,
-                    'nota': dados_origem.get('Nota Fiscal', ''),
-                    'numero': dados_origem.get('Minu.Conh', ''),
-                    'remetente': dados_origem.get('Remetente', ''),
-                    'destinatario': dados_origem.get('Destinatário', ''),
-                    'status': dados_origem.get('Status', ''),
-                    'dt_coleta': self._formatar_data(dados_origem.get('Data Coleta')),
-                    'dt_entrega': self._formatar_data(dados_origem.get('Data Entrega')),
-                    'ocorrencia': dados_origem.get('Ocorrência', ''),
-                    'descricao': dados_origem.get('Compl. Ocorrência', ''),
-                    'valor_sinistro': self._formatar_valor(dados_origem.get('Valor Mercadoria')),
-                    'cliente': dados_origem.get('Cliente', ''),
-                    'modal': dados_origem.get('Modal', ''),
-                    'cidade_destino': dados_origem.get('Cidade Destino', ''),
-                    'uf_destino': dados_origem.get('UF Destino', '')
+                    'total_processados': 0,
+                    'criados': 0,
+                    'atualizados': 0,
+                    'erros': 0,
+                    'detalhes': []
                 }
             
-            return None
+            # Limitar processamento
+            sinistros_para_processar = sinistros_origem[:limite]
+            
+            criados = 0
+            atualizados = 0
+            erros = 0
+            detalhes = []
+            
+            for dados_origem in sinistros_para_processar:
+                try:
+                    nota_fiscal = dados_origem.get('Nota Fiscal', '')
+                    nr_conhecimento = dados_origem.get('Minu.Conh')
+                    
+                    # Sincronizar cada sinistro
+                    sinistro, foi_criado = self.sincronizar_sinistro_do_banco_origem(
+                        nota_fiscal, nr_conhecimento, usuario
+                    )
+                    
+                    if foi_criado:
+                        criados += 1
+                    else:
+                        atualizados += 1
+                    
+                    detalhes.append({
+                        'nota_fiscal': nota_fiscal,
+                        'nr_conhecimento': nr_conhecimento,
+                        'acao': 'criado' if foi_criado else 'atualizado',
+                        'sucesso': True
+                    })
+                    
+                except Exception as e:
+                    erros += 1
+                    detalhes.append({
+                        'nota_fiscal': dados_origem.get('Nota Fiscal', 'N/A'),
+                        'nr_conhecimento': dados_origem.get('Minu.Conh', 'N/A'),
+                        'acao': 'erro',
+                        'sucesso': False,
+                        'erro': str(e)
+                    })
+                    logger.error(f"Erro ao processar sinistro {dados_origem.get('Nota Fiscal')}: {e}")
+            
+            return {
+                'total_processados': len(sinistros_para_processar),
+                'criados': criados,
+                'atualizados': atualizados,
+                'erros': erros,
+                'detalhes': detalhes
+            }
             
         except Exception as e:
-            logger.error(f"Erro no fallback para banco consulta: {e}")
-            return None
-    
-    def buscar_por_nota(self, nota_fiscal: str) -> Optional[Dict]:
-        """
-        Busca sinistro por nota fiscal
-        """
-        try:
-            logger.info(f"Buscando sinistro por nota {nota_fiscal}")
-            
-            # Tentar buscar na tabela eSinistros
-            if self.repo.verificar_tabela_existe():
-                sinistro = self.repo.buscar_por_nota(nota_fiscal)
-                if sinistro:
-                    return sinistro.to_dict()
-            
-            # Fallback: buscar no banco de consulta
-            return self._buscar_por_nota_banco_consulta(nota_fiscal)
-            
-        except Exception as e:
-            logger.error(f"Erro ao buscar sinistro por nota {nota_fiscal}: {e}")
-            return self._buscar_por_nota_banco_consulta(nota_fiscal)
-    
-    def _buscar_por_nota_banco_consulta(self, nota_fiscal: str) -> Optional[Dict]:
-        """
-        Busca por nota no banco de consulta
-        """
-        try:
-            dados_origem = self.repo_origem.buscar_sinistro_por_id(nota_fiscal)
-            
-            if dados_origem:
-                return {
-                    'id': 1,  # ID fictício
-                    'nota': dados_origem.get('Nota Fiscal', ''),
-                    'numero': dados_origem.get('Minu.Conh', ''),
-                    'remetente': dados_origem.get('Remetente', ''),
-                    'destinatario': dados_origem.get('Destinatário', ''),
-                    'status': dados_origem.get('Status', ''),
-                    'dt_coleta': self._formatar_data(dados_origem.get('Data Coleta')),
-                    'dt_entrega': self._formatar_data(dados_origem.get('Data Entrega')),
-                    'ocorrencia': dados_origem.get('Ocorrência', ''),
-                    'descricao': dados_origem.get('Compl. Ocorrência', ''),
-                    'valor_sinistro': self._formatar_valor(dados_origem.get('Valor Mercadoria')),
-                    'cliente': dados_origem.get('Cliente', ''),
-                    'modal': dados_origem.get('Modal', ''),
-                    'cidade_destino': dados_origem.get('Cidade Destino', ''),
-                    'uf_destino': dados_origem.get('UF Destino', '')
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Erro ao buscar por nota no banco consulta: {e}")
-            return None
+            logger.error(f"Erro ao sincronizar múltiplos sinistros: {e}")
+            raise
     
     def atualizar_sinistro(
         self, 
         sinistro_id: int, 
         dados: SinistroAutomacaoUpdate, 
         usuario: str
-    ) -> Optional[Dict]:
-        """
-        Atualiza sinistro - com simulação se necessário
-        """
-        try:
-            logger.info(f"Atualizando sinistro {sinistro_id}")
-            
-            # Verificar se tabela existe e tentar atualização real
-            if self.repo.verificar_tabela_existe():
-                sinistro_atualizado = self.repo.atualizar_sinistro(sinistro_id, dados, usuario)
-                if sinistro_atualizado:
-                    logger.info(f"Sinistro {sinistro_id} atualizado com sucesso")
-                    return sinistro_atualizado.to_dict()
-            
-            # Fallback: simulação de atualização
-            return self._simular_atualizacao(sinistro_id, dados, usuario)
-            
-        except Exception as e:
-            logger.error(f"Erro ao atualizar sinistro {sinistro_id}: {e}")
-            return self._simular_atualizacao(sinistro_id, dados, usuario)
+    ) -> Optional[SinistroAutomacaoOut]:
+        """Atualiza campos específicos de um sinistro"""
+        
+        sinistro = self.repo.atualizar_campos_especificos(sinistro_id, dados, usuario)
+        
+        if sinistro:
+            return SinistroAutomacaoOut.from_orm(sinistro)
+        
+        return None
     
-    def _simular_atualizacao(
+    def buscar_sinistro(self, sinistro_id: int) -> Optional[SinistroAutomacaoOut]:
+        """Busca sinistro por ID"""
+        
+        sinistro = self.repo.buscar_por_id(sinistro_id)
+        
+        if sinistro:
+            return SinistroAutomacaoOut.from_orm(sinistro)
+        
+        return None
+    
+    def buscar_por_nota_conhecimento(
         self, 
-        sinistro_id: int, 
-        dados: SinistroAutomacaoUpdate, 
-        usuario: str
-    ) -> Dict:
-        """
-        Simula atualização para manter funcionalidade durante desenvolvimento
-        """
-        try:
-            logger.info(f"SIMULAÇÃO: Atualizando sinistro {sinistro_id}")
-            
-            # Buscar dados originais
-            sinistro_original = self.buscar_sinistro(sinistro_id)
-            
-            if not sinistro_original:
-                # Criar estrutura básica se não encontrou
-                sinistro_original = {
-                    'id': sinistro_id,
-                    'nota': f'NOTA-{sinistro_id}',
-                    'numero': f'CONH-{sinistro_id}',
-                    'status': 'Em processamento'
-                }
-            
-            # Aplicar atualizações
-            dados_dict = dados.dict(exclude_unset=True)
-            for campo, valor in dados_dict.items():
-                # Mapear campos do schema para campos do dict
-                if campo == 'status_sinistro':
-                    sinistro_original['status'] = valor
-                elif campo == 'descricao':
-                    sinistro_original['descricao'] = valor
-                elif campo == 'valor_sinistro':
-                    sinistro_original['valor_sinistro'] = float(valor) if valor else None
-                else:
-                    sinistro_original[campo] = valor
-            
-            # Atualizar metadados
-            sinistro_original['atualizado_em'] = datetime.utcnow().isoformat()
-            sinistro_original['atualizado_por'] = usuario
-            
-            logger.info(f"SIMULAÇÃO: Sinistro {sinistro_id} atualizado com dados: {dados_dict}")
-            
-            return sinistro_original
-            
-        except Exception as e:
-            logger.error(f"Erro na simulação de atualização: {e}")
-            raise
+        nota_fiscal: str, 
+        nr_conhecimento: Optional[str] = None
+    ) -> Optional[SinistroAutomacaoOut]:
+        """Busca sinistro por nota e conhecimento"""
+        
+        sinistro = self.repo.buscar_por_nota_conhecimento(nota_fiscal, nr_conhecimento)
+        
+        if sinistro:
+            return SinistroAutomacaoOut.from_orm(sinistro)
+        
+        return None
     
     def listar_sinistros(
         self,
         skip: int = 0,
         limit: int = 100,
         filtros: Optional[Dict] = None
-    ) -> Tuple[List[Dict], int]:
-        """
-        Lista sinistros com paginação
-        """
-        try:
-            logger.info(f"Listando sinistros (skip={skip}, limit={limit})")
-            
-            # Tentar listar da tabela eSinistros
-            if self.repo.verificar_tabela_existe():
-                sinistros = self.repo.listar_sinistros(skip, limit, filtros)
-                total = self.repo.contar_sinistros(filtros)
-                
-                sinistros_dict = [s.to_dict() for s in sinistros]
-                
-                if sinistros_dict:
-                    logger.info(f"Encontrados {len(sinistros_dict)} sinistros na tabela eSinistros")
-                    return sinistros_dict, total
-            
-            # Fallback: buscar no banco de consulta
-            return self._listar_banco_consulta(skip, limit, filtros)
-            
-        except Exception as e:
-            logger.error(f"Erro ao listar sinistros: {e}")
-            return self._listar_banco_consulta(skip, limit, filtros)
-    
-    def _listar_banco_consulta(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        filtros: Optional[Dict] = None
-    ) -> Tuple[List[Dict], int]:
-        """
-        Lista sinistros do banco de consulta como fallback
-        """
-        try:
-            logger.info("Fallback: listando sinistros do banco de consulta")
-            
-            # Buscar dados do banco origem
-            sinistros_origem = self.repo_origem.listar_sinistros()
-            
-            if not sinistros_origem:
-                return [], 0
-            
-            # Aplicar filtros simples se fornecidos
-            sinistros_filtrados = sinistros_origem
-            if filtros:
-                if filtros.get('nota_fiscal'):
-                    nota_filtro = filtros['nota_fiscal'].lower()
-                    sinistros_filtrados = [
-                        s for s in sinistros_filtrados 
-                        if nota_filtro in str(s.get('Nota Fiscal', '')).lower()
-                    ]
-                
-                if filtros.get('cliente'):
-                    cliente_filtro = filtros['cliente'].lower()
-                    sinistros_filtrados = [
-                        s for s in sinistros_filtrados 
-                        if cliente_filtro in str(s.get('Cliente', '')).lower()
-                    ]
-            
-            # Aplicar paginação
-            total = len(sinistros_filtrados)
-            sinistros_pagina = sinistros_filtrados[skip:skip + limit]
-            
-            # Converter para formato padrão
-            resultado = []
-            for i, dados in enumerate(sinistros_pagina):
-                sinistro_dict = {
-                    'id': skip + i + 1,
-                    'nota': dados.get('Nota Fiscal', ''),
-                    'numero': dados.get('Minu.Conh', ''),
-                    'remetente': dados.get('Remetente', ''),
-                    'destinatario': dados.get('Destinatário', ''),
-                    'status': dados.get('Status', ''),
-                    'dt_coleta': self._formatar_data(dados.get('Data Coleta')),
-                    'dt_entrega': self._formatar_data(dados.get('Data Entrega')),
-                    'ocorrencia': dados.get('Ocorrência', ''),
-                    'descricao': dados.get('Compl. Ocorrência', ''),
-                    'valor_sinistro': self._formatar_valor(dados.get('Valor Mercadoria')),
-                    'cliente': dados.get('Cliente', ''),
-                    'modal': dados.get('Modal', ''),
-                    'cidade_destino': dados.get('Cidade Destino', ''),
-                    'uf_destino': dados.get('UF Destino', '')
-                }
-                resultado.append(sinistro_dict)
-            
-            logger.info(f"Retornando {len(resultado)} sinistros do banco consulta (total: {total})")
-            return resultado, total
-            
-        except Exception as e:
-            logger.error(f"Erro no fallback de listagem: {e}")
-            return [], 0
-    
-    def _formatar_data(self, data_valor) -> Optional[str]:
-        """Formata data para string ISO"""
-        if not data_valor:
-            return None
+    ) -> Tuple[List[SinistroAutomacaoResumo], int]:
+        """Lista sinistros com paginação"""
         
-        if isinstance(data_valor, (date, datetime)):
-            return data_valor.isoformat()
+        sinistros = self.repo.listar_sinistros(skip, limit, filtros)
+        total = self.repo.contar_sinistros(filtros)
         
-        return str(data_valor)
-    
-    def _formatar_valor(self, valor) -> Optional[float]:
-        """Formata valor numérico"""
-        if valor is None:
-            return None
+        sinistros_resumo = [
+            SinistroAutomacaoResumo.from_orm(s) for s in sinistros
+        ]
         
-        try:
-            return float(valor)
-        except:
-            return None
+        return sinistros_resumo, total
     
-    def verificar_status_sistema(self) -> Dict:
-        """
-        Verifica status do sistema e conectividade
-        """
-        try:
-            status = {
-                'tabela_esinistros_existe': False,
-                'banco_consulta_disponivel': False,
-                'total_sinistros_esinistros': 0,
-                'total_sinistros_consulta': 0,
-                'modo_operacao': 'fallback'
-            }
-            
-            # Verificar tabela eSinistros
-            if self.repo.verificar_tabela_existe():
-                status['tabela_esinistros_existe'] = True
-                status['total_sinistros_esinistros'] = self.repo.contar_sinistros()
-                status['modo_operacao'] = 'normal'
-            
-            # Verificar banco consulta
-            try:
-                sinistros_consulta = self.repo_origem.listar_sinistros()
-                if sinistros_consulta:
-                    status['banco_consulta_disponivel'] = True
-                    status['total_sinistros_consulta'] = len(sinistros_consulta)
-            except:
-                pass
-            
-            return status
-            
-        except Exception as e:
-            logger.error(f"Erro ao verificar status do sistema: {e}")
-            return {
-                'tabela_esinistros_existe': False,
-                'banco_consulta_disponivel': False,
-                'total_sinistros_esinistros': 0,
-                'total_sinistros_consulta': 0,
-                'modo_operacao': 'erro',
-                'erro': str(e)
-            }
+    def obter_estatisticas(self) -> EstatisticasSinistros:
+        """Obtém estatísticas dos sinistros"""
+        
+        stats = self.repo.obter_estatisticas()
+        
+        return EstatisticasSinistros(
+            total_sinistros=stats.get('total_sinistros', 0),
+            nao_iniciados=stats.get('nao_iniciados', 0),
+            em_andamento=stats.get('em_andamento', 0),
+            concluidos=stats.get('concluidos', 0),
+            valor_total_sinistros=Decimal(str(stats.get('valor_total_sinistros', 0))),
+            valor_total_prejuizo=Decimal(str(stats.get('valor_total_sinistros', 0))),  # Calcular prejuízo
+            valor_total_indenizacoes=Decimal(str(stats.get('valor_total_indenizacoes', 0))),
+            sinistros_com_acionamento_juridico=stats.get('sinistros_juridicos', 0),
+            sinistros_com_acionamento_seguradora=stats.get('sinistros_seguradoras', 0)
+        )
+    
+    def criar_sinistro_manual(
+        self, 
+        dados: SinistroAutomacaoCreate, 
+        usuario: str
+    ) -> SinistroAutomacaoOut:
+        """Cria sinistro manualmente (sem sincronização)"""
+        
+        sinistro, _ = self.repo.criar_ou_atualizar(dados, usuario)
+        
+        return SinistroAutomacaoOut.from_orm(sinistro)
+    
+    def deletar_sinistro(self, sinistro_id: int) -> bool:
+        """Deleta sinistro"""
+        
+        return self.repo.deletar(sinistro_id)
 
+# Função de conveniência para criar service
 def get_sinistro_automacao_service(db: Session = None) -> SinistroAutomacaoService:
-    """
-    Factory function para obter instância do service
-    """
+    """Factory para criar SinistroAutomacaoService"""
     if db is None:
         db = next(get_db())
     

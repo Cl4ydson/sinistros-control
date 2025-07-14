@@ -66,6 +66,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+REM Verificar se a porta 8000 está livre
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do set PID_BACKEND=%%a
+if defined PID_BACKEND (
+    echo ❌ Porta 8000 já está em uso pelo processo PID %PID_BACKEND%.
+    echo    Encerre o processo ou libere a porta antes de iniciar o sistema.
+    pause
+    exit /b 1
+)
+
 echo.
 echo 🚀 Iniciando Backend API na porta 8000...
 start "BACKEND - API Sinistros CORRIGIDA" cmd /c "call venv\Scripts\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload && pause"

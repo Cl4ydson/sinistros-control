@@ -1,4 +1,4 @@
 from .user import User
-from .sinistro_automacao import SinistroAutomacao
+from .sinistro import SinistroView
 
-__all__ = ["User", "SinistroAutomacao"] 
+__all__ = ["User", "SinistroView"] 

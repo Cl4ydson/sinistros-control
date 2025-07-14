@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy import and_, or_, func, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, or_, func
 from typing import Optional, List, Dict, Tuple
 from datetime import datetime, date
 import logging
@@ -9,304 +9,294 @@ from ..models.sinistro_automacao import SinistroAutomacao
 from ..schemas.sinistro_automacao import (
     SinistroAutomacaoCreate, 
     SinistroAutomacaoUpdate,
-    SinistroAutomacaoResponse
+    StatusPagamento,
+    StatusIndenizacao,
+    StatusJuridico,
+    StatusSeguradora,
+    StatusGeral
 )
+from ..database import get_db
 
 logger = logging.getLogger(__name__)
 
 class SinistroAutomacaoRepository:
     """
-    Repository para operações na tabela eSinistros do banco AUTOMACAO_BRSAMOR
-    Operações adaptadas para a estrutura real da tabela existente
+    Repository para operações na tabela Sinistros do banco AUTOMACAO_BRSAMOR
+    Suporte completo a UPSERT para atualizações constantes
     """
     
     def __init__(self, db: Session):
         self.db = db
     
-    def verificar_tabela_existe(self) -> bool:
+    def buscar_por_nota_conhecimento(
+        self, 
+        nota_fiscal: str, 
+        nr_conhecimento: Optional[str] = None
+    ) -> Optional[SinistroAutomacao]:
         """
-        Verifica se a tabela eSinistros existe no banco
-        """
-        try:
-            query = text("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'eSinistros'")
-            result = self.db.execute(query)
-            count = result.scalar()
-            return count > 0
-        except Exception as e:
-            logger.error(f"Erro ao verificar existência da tabela: {e}")
-            return False
-    
-    def buscar_por_id(self, sinistro_id: int) -> Optional[SinistroAutomacao]:
-        """
-        Busca sinistro por ID
+        Busca sinistro por nota fiscal e conhecimento (identificação única)
         """
         try:
-            if not self.verificar_tabela_existe():
-                logger.warning("Tabela eSinistros não encontrada")
-                return None
+            query = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.nota_fiscal == nota_fiscal
+            )
+            
+            if nr_conhecimento:
+                query = query.filter(SinistroAutomacao.nr_conhecimento == nr_conhecimento)
+            else:
+                query = query.filter(SinistroAutomacao.nr_conhecimento.is_(None))
                 
-            # Como não sabemos se existe campo ID, vamos tentar diferentes abordagens
-            # Primeiro tentamos com ROWID (disponível no SQL Server)
-            query = text("""
-                SELECT TOP 1 *
-                FROM eSinistros 
-                WHERE ROWID = :id
-                ORDER BY [Nota Fiscal]
-            """)
-            
-            result = self.db.execute(query, {"id": sinistro_id})
-            row = result.fetchone()
-            
-            if row:
-                # Converter row para objeto SinistroAutomacao
-                return self._row_to_sinistro(row, sinistro_id)
-            
-            return None
-            
+            return query.first()
         except Exception as e:
-            logger.error(f"Erro ao buscar sinistro por ID {sinistro_id}: {e}")
+            logger.error(f"Erro ao buscar sinistro por nota/conhecimento: {e}")
             return None
     
-    def buscar_por_nota(self, nota_fiscal: str) -> Optional[SinistroAutomacao]:
+    def criar_ou_atualizar(
+        self, 
+        dados: SinistroAutomacaoCreate, 
+        usuario: str
+    ) -> Tuple[SinistroAutomacao, bool]:
         """
-        Busca sinistro por nota fiscal
+        UPSERT: Cria novo sinistro ou atualiza existente
+        Retorna: (sinistro, foi_criado)
         """
         try:
-            if not self.verificar_tabela_existe():
-                logger.warning("Tabela eSinistros não encontrada")
-                return None
+            # Verificar se já existe
+            sinistro_existente = self.buscar_por_nota_conhecimento(
+                dados.nota_fiscal, 
+                dados.nr_conhecimento
+            )
+            
+            if sinistro_existente:
+                # ATUALIZAR
+                logger.info(f"Atualizando sinistro existente: {dados.nota_fiscal}")
+                return self._atualizar_sinistro(sinistro_existente, dados, usuario), False
+            else:
+                # CRIAR NOVO
+                logger.info(f"Criando novo sinistro: {dados.nota_fiscal}")
+                return self._criar_sinistro(dados, usuario), True
                 
-            query = text("""
-                SELECT TOP 1 *
-                FROM eSinistros 
-                WHERE [Nota Fiscal] = :nota
-                ORDER BY [Data Cadastro] DESC
-            """)
-            
-            result = self.db.execute(query, {"nota": nota_fiscal})
-            row = result.fetchone()
-            
-            if row:
-                return self._row_to_sinistro(row)
-            
-            return None
-            
         except Exception as e:
-            logger.error(f"Erro ao buscar sinistro por nota {nota_fiscal}: {e}")
-            return None
+            logger.error(f"Erro no UPSERT do sinistro: {e}")
+            self.db.rollback()
+            raise
     
-    def listar_sinistros(
-        self,
-        offset: int = 0,
-        limit: int = 100,
-        filtros: Optional[Dict] = None
-    ) -> List[SinistroAutomacao]:
-        """
-        Lista sinistros com filtros opcionais
-        """
-        try:
-            if not self.verificar_tabela_existe():
-                logger.warning("Tabela eSinistros não encontrada")
-                return []
-            
-            # Query base
-            where_conditions = []
-            params = {}
-            
-            # Aplicar filtros se fornecidos
-            if filtros:
-                if filtros.get('nota_fiscal'):
-                    where_conditions.append("[Nota Fiscal] LIKE :nota")
-                    params['nota'] = f"%{filtros['nota_fiscal']}%"
-                
-                if filtros.get('cliente'):
-                    where_conditions.append("[CLIENTE] LIKE :cliente")
-                    params['cliente'] = f"%{filtros['cliente']}%"
-                
-                if filtros.get('status'):
-                    where_conditions.append("[STATUS SINISTRO] LIKE :status")
-                    params['status'] = f"%{filtros['status']}%"
-            
-            # Construir query
-            where_clause = ""
-            if where_conditions:
-                where_clause = "WHERE " + " AND ".join(where_conditions)
-            
-            query = text(f"""
-                SELECT *
-                FROM eSinistros
-                {where_clause}
-                ORDER BY [Data Cadastro] DESC
-                OFFSET :offset ROWS
-                FETCH NEXT :limit ROWS ONLY
-            """)
-            
-            params.update({'offset': offset, 'limit': limit})
-            
-            result = self.db.execute(query, params)
-            rows = result.fetchall()
-            
-            sinistros = []
-            for i, row in enumerate(rows):
-                sinistro = self._row_to_sinistro(row, offset + i + 1)
-                sinistros.append(sinistro)
-            
-            return sinistros
-            
-        except Exception as e:
-            logger.error(f"Erro ao listar sinistros: {e}")
-            return []
+    def _criar_sinistro(self, dados: SinistroAutomacaoCreate, usuario: str) -> SinistroAutomacao:
+        """Cria novo sinistro"""
+        sinistro = SinistroAutomacao(
+            **dados.dict(exclude={'criado_por'}),
+            criado_por=usuario,
+            atualizado_por=usuario,
+            status_geral=StatusGeral.NAO_INICIADO.value
+        )
+        
+        self.db.add(sinistro)
+        self.db.commit()
+        self.db.refresh(sinistro)
+        return sinistro
     
-    def atualizar_sinistro(
+    def _atualizar_sinistro(
+        self, 
+        sinistro: SinistroAutomacao, 
+        dados: SinistroAutomacaoCreate, 
+        usuario: str
+    ) -> SinistroAutomacao:
+        """Atualiza sinistro existente com novos dados básicos"""
+        
+        # Atualizar apenas campos básicos vindos do outro banco
+        campos_basicos = [
+            'remetente', 'destinatario', 'cliente', 'modal',
+            'dt_coleta', 'dt_prazo_entrega', 'dt_entrega_real', 
+            'dt_agendamento', 'dt_ocorrencia', 'dt_cadastro',
+            'hr_cadastro', 'dt_alteracao', 'hr_alteracao',
+            'tipo_ocorrencia', 'descricao_ocorrencia', 
+            'ultima_ocorrencia', 'referencia', 'valor_mercadoria'
+        ]
+        
+        for campo in campos_basicos:
+            valor = getattr(dados, campo, None)
+            if valor is not None:
+                setattr(sinistro, campo, valor)
+        
+        sinistro.atualizado_por = usuario
+        sinistro.atualizado_em = datetime.utcnow()
+        
+        self.db.commit()
+        self.db.refresh(sinistro)
+        return sinistro
+    
+    def atualizar_campos_especificos(
         self, 
         sinistro_id: int, 
         dados: SinistroAutomacaoUpdate, 
         usuario: str
     ) -> Optional[SinistroAutomacao]:
         """
-        Atualiza sinistro existente
-        Por enquanto retorna simulação - implementação real depende de permissões
+        Atualiza campos específicos do sinistro (preenchidos pelo usuário)
         """
         try:
-            # Buscar sinistro original
-            sinistro_original = self.buscar_por_id(sinistro_id)
+            sinistro = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.id == sinistro_id
+            ).first()
             
-            if not sinistro_original:
-                logger.warning(f"Sinistro {sinistro_id} não encontrado para atualização")
+            if not sinistro:
                 return None
             
-            # Por enquanto, simular atualização devido a possíveis restrições de permissão
-            logger.info(f"SIMULAÇÃO: Atualizando sinistro {sinistro_id}")
-            logger.info(f"Dados para atualização: {dados.dict(exclude_unset=True)}")
+            # Atualizar apenas campos não-nulos
+            campos_atualizacao = dados.dict(exclude_unset=True, exclude={'atualizado_por'})
             
-            # Aplicar atualizações ao objeto em memória
-            dados_dict = dados.dict(exclude_unset=True)
-            for campo, valor in dados_dict.items():
-                if hasattr(sinistro_original, campo):
-                    setattr(sinistro_original, campo, valor)
+            for campo, valor in campos_atualizacao.items():
+                if hasattr(sinistro, campo):
+                    setattr(sinistro, campo, valor)
             
-            # Atualizar metadados
-            sinistro_original.atualizado_em = datetime.utcnow()
-            sinistro_original.atualizado_por = usuario
-            
-            logger.info(f"Sinistro {sinistro_id} atualizado com sucesso (simulação)")
-            return sinistro_original
-            
-        except Exception as e:
-            logger.error(f"Erro ao atualizar sinistro {sinistro_id}: {e}")
-            return None
-    
-    def _row_to_sinistro(self, row, sinistro_id: int = None) -> SinistroAutomacao:
-        """
-        Converte uma linha do resultado SQL para objeto SinistroAutomacao
-        """
-        try:
-            # Criar objeto usando os dados da linha
-            sinistro = SinistroAutomacao()
-            
-            # Mapear campos da consulta SQL para o objeto
-            # Usar getattr com fallback para campos que podem não existir
-            
-            sinistro.id = sinistro_id or 1
-            sinistro.nota_fiscal = getattr(row, 'Nota Fiscal', None)
-            sinistro.nr_conhecimento = getattr(row, 'Minu.Conh', None)
-            sinistro.remetente = getattr(row, 'Remetente', None)
-            sinistro.destinatario = getattr(row, 'Destinatário', None)
-            
-            # Datas
-            sinistro.dt_coleta = getattr(row, 'Data Coleta', None)
-            sinistro.dt_prazo_entrega = getattr(row, 'Prazo Entrega', None)
-            sinistro.dt_entrega = getattr(row, 'Data Entrega', None)
-            sinistro.dt_agendamento = getattr(row, 'Data Agendamento', None)
-            sinistro.dt_ocorrencia = getattr(row, 'Data Ocorrência', None)
-            sinistro.dt_cadastro = getattr(row, 'Data Cadastro', None)
-            sinistro.hr_cadastro = getattr(row, 'Hora Cadastro', None)
-            sinistro.dt_alteracao = getattr(row, 'Data Alteração', None)
-            sinistro.hr_alteracao = getattr(row, 'Hora Alteração', None)
-            
-            # Ocorrências
-            sinistro.ocorrencia = getattr(row, 'Ocorrência', None)
-            sinistro.compl_ocorrencia = getattr(row, 'Compl. Ocorrência', None)
-            sinistro.ultima_ocorrencia = getattr(row, 'ULTIMA OCORRENCIA', None)
-            sinistro.referencia = getattr(row, 'REFERENCIA', None)
-            
-            # Valores
-            sinistro.valor_nota_fiscal = getattr(row, 'Valor Nota Fiscal', None)
-            sinistro.valor_frete = getattr(row, 'Valor Frete', None)
-            sinistro.valor_sinistro = getattr(row, 'VALOR DO SINISTRO ', None)
-            
-            # Localização
-            sinistro.cidade_destino = getattr(row, 'Cidade Destino', None)
-            sinistro.uf_destino = getattr(row, 'UF Destino', None)
-            
-            # Informações do negócio
-            sinistro.cliente = getattr(row, 'CLIENTE', None)
-            sinistro.modal = getattr(row, 'MODAL', None)
-            sinistro.tipo = getattr(row, 'TIPO', None)
-            sinistro.descricao = getattr(row, 'DESCRIÇÃO', None)
-            
-            # Status
-            sinistro.status_sinistro = getattr(row, 'STATUS SINISTRO', None)
-            sinistro.status = getattr(row, 'STATUS', None)
-            sinistro.concluido = getattr(row, 'CONCLUÍDO?', None)
-            
-            # Valores financeiros
-            sinistro.salvados = getattr(row, 'SALVADOS', None)
-            sinistro.indenizados = getattr(row, 'INDENIZADOS', None)
-            sinistro.uso_interno = getattr(row, 'USO INTERNO', None)
-            sinistro.juridico = getattr(row, 'JURIDICO', None)
-            sinistro.seguro = getattr(row, 'SEGURO', None)
-            sinistro.prejuizo = getattr(row, 'PREJUÍZO', None)
-            
-            # Metadados
-            sinistro.criado_em = datetime.utcnow()
+            sinistro.atualizado_por = usuario
             sinistro.atualizado_em = datetime.utcnow()
             
+            # Atualizar status geral automaticamente
+            self._atualizar_status_geral(sinistro)
+            
+            self.db.commit()
+            self.db.refresh(sinistro)
             return sinistro
             
         except Exception as e:
-            logger.error(f"Erro ao converter linha para SinistroAutomacao: {e}")
+            logger.error(f"Erro ao atualizar campos específicos: {e}")
+            self.db.rollback()
             raise
     
+    def _atualizar_status_geral(self, sinistro: SinistroAutomacao):
+        """Atualiza status geral baseado nos outros status"""
+        
+        # Se tem algum acionamento ativo
+        tem_acionamento = (
+            sinistro.acionamento_juridico or 
+            sinistro.acionamento_seguradora or
+            sinistro.status_pagamento not in [StatusPagamento.AGUARDANDO_ND.value] or
+            sinistro.status_indenizacao not in [StatusIndenizacao.PENDENTE.value]
+        )
+        
+        # Se tudo está finalizado
+        tudo_finalizado = (
+            sinistro.status_pagamento == StatusPagamento.PAGO.value and
+            sinistro.status_indenizacao == StatusIndenizacao.PAGO.value and
+            (not sinistro.acionamento_juridico or sinistro.status_juridico == StatusJuridico.INDENIZADO.value) and
+            (not sinistro.acionamento_seguradora or sinistro.status_seguradora == StatusSeguradora.INDENIZADO.value)
+        )
+        
+        if tudo_finalizado:
+            sinistro.status_geral = StatusGeral.CONCLUIDO.value
+        elif tem_acionamento:
+            sinistro.status_geral = StatusGeral.EM_ANDAMENTO.value
+        else:
+            sinistro.status_geral = StatusGeral.NAO_INICIADO.value
+    
+    def buscar_por_id(self, sinistro_id: int) -> Optional[SinistroAutomacao]:
+        """Busca sinistro por ID"""
+        return self.db.query(SinistroAutomacao).filter(
+            SinistroAutomacao.id == sinistro_id
+        ).first()
+    
+    def listar_sinistros(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        filtros: Optional[Dict] = None
+    ) -> List[SinistroAutomacao]:
+        """Lista sinistros com filtros opcionais"""
+        
+        query = self.db.query(SinistroAutomacao)
+        
+        if filtros:
+            if filtros.get('status_geral'):
+                query = query.filter(SinistroAutomacao.status_geral == filtros['status_geral'])
+            
+            if filtros.get('setor_responsavel'):
+                query = query.filter(SinistroAutomacao.setor_responsavel == filtros['setor_responsavel'])
+            
+            if filtros.get('dt_ocorrencia_inicio'):
+                query = query.filter(SinistroAutomacao.dt_ocorrencia >= filtros['dt_ocorrencia_inicio'])
+            
+            if filtros.get('dt_ocorrencia_fim'):
+                query = query.filter(SinistroAutomacao.dt_ocorrencia <= filtros['dt_ocorrencia_fim'])
+            
+            if filtros.get('cliente'):
+                query = query.filter(SinistroAutomacao.cliente.ilike(f"%{filtros['cliente']}%"))
+        
+        return query.offset(skip).limit(limit).all()
+    
     def contar_sinistros(self, filtros: Optional[Dict] = None) -> int:
-        """
-        Conta total de sinistros com filtros opcionais
-        """
+        """Conta total de sinistros com filtros"""
+        query = self.db.query(func.count(SinistroAutomacao.id))
+        
+        if filtros:
+            if filtros.get('status_geral'):
+                query = query.filter(SinistroAutomacao.status_geral == filtros['status_geral'])
+            
+            if filtros.get('setor_responsavel'):
+                query = query.filter(SinistroAutomacao.setor_responsavel == filtros['setor_responsavel'])
+        
+        return query.scalar()
+    
+    def obter_estatisticas(self) -> Dict:
+        """Obtém estatísticas consolidadas dos sinistros"""
         try:
-            if not self.verificar_tabela_existe():
-                return 0
+            total = self.db.query(func.count(SinistroAutomacao.id)).scalar()
             
-            where_conditions = []
-            params = {}
+            # Por status
+            nao_iniciados = self.db.query(func.count(SinistroAutomacao.id)).filter(
+                SinistroAutomacao.status_geral == StatusGeral.NAO_INICIADO.value
+            ).scalar()
             
-            if filtros:
-                if filtros.get('nota_fiscal'):
-                    where_conditions.append("[Nota Fiscal] LIKE :nota")
-                    params['nota'] = f"%{filtros['nota_fiscal']}%"
-                
-                if filtros.get('cliente'):
-                    where_conditions.append("[CLIENTE] LIKE :cliente")
-                    params['cliente'] = f"%{filtros['cliente']}%"
-                
-                if filtros.get('status'):
-                    where_conditions.append("[STATUS SINISTRO] LIKE :status")
-                    params['status'] = f"%{filtros['status']}%"
+            em_andamento = self.db.query(func.count(SinistroAutomacao.id)).filter(
+                SinistroAutomacao.status_geral == StatusGeral.EM_ANDAMENTO.value
+            ).scalar()
             
-            where_clause = ""
-            if where_conditions:
-                where_clause = "WHERE " + " AND ".join(where_conditions)
+            concluidos = self.db.query(func.count(SinistroAutomacao.id)).filter(
+                SinistroAutomacao.status_geral == StatusGeral.CONCLUIDO.value
+            ).scalar()
             
-            query = text(f"""
-                SELECT COUNT(*) as total
-                FROM eSinistros
-                {where_clause}
-            """)
+            # Valores
+            valores = self.db.query(
+                func.sum(SinistroAutomacao.valor_mercadoria),
+                func.sum(SinistroAutomacao.valor_sinistro_total),
+                func.sum(SinistroAutomacao.valor_indenizado_total)
+            ).first()
             
-            result = self.db.execute(query, params)
-            count = result.scalar()
+            # Acionamentos
+            juridicos = self.db.query(func.count(SinistroAutomacao.id)).filter(
+                SinistroAutomacao.acionamento_juridico == True
+            ).scalar()
             
-            return count or 0
+            seguradoras = self.db.query(func.count(SinistroAutomacao.id)).filter(
+                SinistroAutomacao.acionamento_seguradora == True
+            ).scalar()
+            
+            return {
+                'total_sinistros': total or 0,
+                'nao_iniciados': nao_iniciados or 0,
+                'em_andamento': em_andamento or 0,
+                'concluidos': concluidos or 0,
+                'valor_total_mercadorias': float(valores[0] or 0),
+                'valor_total_sinistros': float(valores[1] or 0),
+                'valor_total_indenizacoes': float(valores[2] or 0),
+                'sinistros_juridicos': juridicos or 0,
+                'sinistros_seguradoras': seguradoras or 0
+            }
             
         except Exception as e:
-            logger.error(f"Erro ao contar sinistros: {e}")
-            return 0 
+            logger.error(f"Erro ao obter estatísticas: {e}")
+            return {}
+    
+    def deletar(self, sinistro_id: int) -> bool:
+        """Deleta sinistro (usar com cuidado)"""
+        try:
+            sinistro = self.buscar_por_id(sinistro_id)
+            if sinistro:
+                self.db.delete(sinistro)
+                self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao deletar sinistro: {e}")
+            self.db.rollback()
+            return False 

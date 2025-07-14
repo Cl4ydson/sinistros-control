@@ -9,8 +9,16 @@ from ..services.sinistro_automacao_service import SinistroAutomacaoService
 from ..schemas.sinistro_automacao import (
     SinistroAutomacaoCreate,
     SinistroAutomacaoUpdate,
-    SinistroAutomacaoResponse
+    SinistroAutomacaoOut,
+    SinistroAutomacaoResumo,
+    EstatisticasSinistros,
+    StatusPagamento,
+    StatusIndenizacao,
+    StatusJuridico,
+    StatusSeguradora
 )
+from ..core.auth import get_current_user
+from ..schemas.user import UserResponse
 
 router = APIRouter(prefix="/api/automacao/sinistros", tags=["Sinistros Automação"])
 logger = logging.getLogger(__name__)
@@ -28,82 +36,93 @@ def get_usuario_atual() -> str:
     return "sistema"  # Por enquanto fixo
 
 # ============================================================
-# ENDPOINTS PRINCIPAIS
+# ENDPOINTS DE SINCRONIZAÇÃO
 # ============================================================
 
-# ============================================================
-# ENDPOINTS DE STATUS E SAÚDE (DEVEM VIR PRIMEIRO)
-# ============================================================
-
-@router.get("/health")
-async def verificar_saude():
-    """Health check básico"""
-    return {
-        "status": "ok",
-        "service": "sinistros_automacao",
-        "timestamp": str(date.today())
-    }
-
-@router.get("/status/sistema")
-async def verificar_status_sistema(
-    service: SinistroAutomacaoService = Depends(get_sinistro_service)
-):
-    """Verifica status do sistema e conectividade com bancos"""
-    try:
-        status = service.verificar_status_sistema()
-        
-        return {
-            "success": True,
-            "data": status,
-            "message": "Status do sistema verificado"
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao verificar status: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
-
-@router.get("/buscar/{nota_fiscal}")
-async def buscar_por_nota(
+@router.post("/sincronizar/{nota_fiscal}")
+async def sincronizar_sinistro(
     nota_fiscal: str,
-    service: SinistroAutomacaoService = Depends(get_sinistro_service)
+    nr_conhecimento: Optional[str] = Query(None),
+    service: SinistroAutomacaoService = Depends(get_sinistro_service),
+    usuario: str = Depends(get_usuario_atual)
 ):
-    """Busca sinistro por nota fiscal"""
+    """
+    Sincroniza um sinistro específico do banco origem para AUTOMACAO_BRSAMOR
+    Se já existir, atualiza os dados básicos
+    """
     try:
-        sinistro = service.buscar_por_nota(nota_fiscal)
-        
-        if not sinistro:
-            raise HTTPException(status_code=404, detail="Sinistro não encontrado")
+        sinistro, foi_criado = service.sincronizar_sinistro_do_banco_origem(
+            nota_fiscal, nr_conhecimento, usuario
+        )
         
         return {
             "success": True,
-            "data": sinistro
+            "data": sinistro,
+            "message": f"Sinistro {'criado' if foi_criado else 'sincronizado'} com sucesso",
+            "acao": "criado" if foi_criado else "atualizado"
         }
         
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Erro ao buscar sinistro: {e}")
+        logger.error(f"Erro ao sincronizar sinistro: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.post("/sincronizar-multiplos")
+async def sincronizar_multiplos_sinistros(
+    filtros: Dict[str, Any] = Body(...),
+    limite: int = Body(100, le=500),
+    service: SinistroAutomacaoService = Depends(get_sinistro_service),
+    usuario: str = Depends(get_usuario_atual)
+):
+    """
+    Sincroniza múltiplos sinistros do banco origem
+    Aceita filtros como data_inicio, data_fim, cliente, etc.
+    """
+    try:
+        resultado = service.sincronizar_multiplos_sinistros(filtros, usuario, limite)
+        
+        return {
+            "success": True,
+            "data": resultado,
+            "message": f"Processados {resultado['total_processados']} sinistros. "
+                      f"Criados: {resultado['criados']}, Atualizados: {resultado['atualizados']}, "
+                      f"Erros: {resultado['erros']}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao sincronizar múltiplos sinistros: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+# ============================================================
+# ENDPOINTS CRUD PRINCIPAIS
+# ============================================================
 
 @router.get("/", response_model=Dict[str, Any])
 async def listar_sinistros(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, le=500),
-    nota_fiscal: Optional[str] = Query(None),
+    status_geral: Optional[str] = Query(None),
+    setor_responsavel: Optional[str] = Query(None),
+    dt_ocorrencia_inicio: Optional[date] = Query(None),
+    dt_ocorrencia_fim: Optional[date] = Query(None),
     cliente: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
     service: SinistroAutomacaoService = Depends(get_sinistro_service)
 ):
     """Lista sinistros com filtros e paginação"""
     try:
         # Montar filtros
         filtros = {}
-        if nota_fiscal:
-            filtros['nota_fiscal'] = nota_fiscal
+        if status_geral:
+            filtros['status_geral'] = status_geral
+        if setor_responsavel:
+            filtros['setor_responsavel'] = setor_responsavel
+        if dt_ocorrencia_inicio:
+            filtros['dt_ocorrencia_inicio'] = dt_ocorrencia_inicio
+        if dt_ocorrencia_fim:
+            filtros['dt_ocorrencia_fim'] = dt_ocorrencia_fim
         if cliente:
             filtros['cliente'] = cliente
-        if status:
-            filtros['status'] = status
         
         sinistros, total = service.listar_sinistros(skip, limit, filtros)
         
@@ -120,7 +139,7 @@ async def listar_sinistros(
         logger.error(f"Erro ao listar sinistros: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
-@router.get("/{sinistro_id}")
+@router.get("/{sinistro_id}", response_model=SinistroAutomacaoOut)
 async def obter_sinistro(
     sinistro_id: int,
     service: SinistroAutomacaoService = Depends(get_sinistro_service)
@@ -128,6 +147,27 @@ async def obter_sinistro(
     """Obtém sinistro por ID"""
     try:
         sinistro = service.buscar_sinistro(sinistro_id)
+        
+        if not sinistro:
+            raise HTTPException(status_code=404, detail="Sinistro não encontrado")
+        
+        return sinistro
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao obter sinistro: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.get("/buscar/{nota_fiscal}")
+async def buscar_por_nota_conhecimento(
+    nota_fiscal: str,
+    nr_conhecimento: Optional[str] = Query(None),
+    service: SinistroAutomacaoService = Depends(get_sinistro_service)
+):
+    """Busca sinistro por nota fiscal e conhecimento"""
+    try:
+        sinistro = service.buscar_por_nota_conhecimento(nota_fiscal, nr_conhecimento)
         
         if not sinistro:
             raise HTTPException(status_code=404, detail="Sinistro não encontrado")
@@ -140,7 +180,23 @@ async def obter_sinistro(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao obter sinistro: {e}")
+        logger.error(f"Erro ao buscar sinistro: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.post("/", response_model=SinistroAutomacaoOut)
+async def criar_sinistro_manual(
+    dados: SinistroAutomacaoCreate,
+    service: SinistroAutomacaoService = Depends(get_sinistro_service),
+    usuario: str = Depends(get_usuario_atual)
+):
+    """Cria sinistro manualmente (sem sincronização)"""
+    try:
+        sinistro = service.criar_sinistro_manual(dados, usuario)
+        
+        return sinistro
+        
+    except Exception as e:
+        logger.error(f"Erro ao criar sinistro: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 @router.put("/{sinistro_id}")
@@ -150,16 +206,16 @@ async def atualizar_sinistro(
     service: SinistroAutomacaoService = Depends(get_sinistro_service),
     usuario: str = Depends(get_usuario_atual)
 ):
-    """Atualiza dados específicos do sinistro"""
+    """Atualiza campos específicos do sinistro"""
     try:
-        sinistro_atualizado = service.atualizar_sinistro(sinistro_id, dados, usuario)
+        sinistro = service.atualizar_sinistro(sinistro_id, dados, usuario)
         
-        if not sinistro_atualizado:
+        if not sinistro:
             raise HTTPException(status_code=404, detail="Sinistro não encontrado")
         
         return {
             "success": True,
-            "data": sinistro_atualizado,
+            "data": sinistro,
             "message": "Sinistro atualizado com sucesso"
         }
         
@@ -169,95 +225,204 @@ async def atualizar_sinistro(
         logger.error(f"Erro ao atualizar sinistro: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
-# ============================================================
-# ENDPOINTS ESPECÍFICOS PARA VALORES
-# ============================================================
-
-# ============================================================
-# ENDPOINTS SIMPLIFICADOS PARA VALORES ESPECÍFICOS
-# ============================================================
-
-@router.put("/{sinistro_id}/valor")
-async def atualizar_valor_sinistro(
+@router.delete("/{sinistro_id}")
+async def deletar_sinistro(
     sinistro_id: int,
-    valor_sinistro: float = Body(...),
-    service: SinistroAutomacaoService = Depends(get_sinistro_service),
-    usuario: str = Depends(get_usuario_atual)
+    service: SinistroAutomacaoService = Depends(get_sinistro_service)
 ):
-    """Atualiza apenas o valor do sinistro"""
+    """Deleta sinistro (usar com cuidado)"""
     try:
-        from decimal import Decimal
-        dados_atualizacao = SinistroAutomacaoUpdate(valor_sinistro=Decimal(str(valor_sinistro)))
+        sucesso = service.deletar_sinistro(sinistro_id)
         
-        sinistro_atualizado = service.atualizar_sinistro(sinistro_id, dados_atualizacao, usuario)
-        
-        if not sinistro_atualizado:
+        if not sucesso:
             raise HTTPException(status_code=404, detail="Sinistro não encontrado")
         
         return {
             "success": True,
-            "data": sinistro_atualizado,
-            "message": f"Valor do sinistro atualizado para {valor_sinistro}"
+            "message": "Sinistro deletado com sucesso"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao atualizar valor: {e}")
+        logger.error(f"Erro ao deletar sinistro: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
-@router.put("/{sinistro_id}/status")
-async def atualizar_status_sinistro(
+# ============================================================
+# ENDPOINTS DE ATUALIZAÇÃO ESPECÍFICA
+# ============================================================
+
+@router.put("/{sinistro_id}/pagamento")
+async def atualizar_dados_pagamento(
     sinistro_id: int,
-    status: str = Body(...),
+    status_pagamento: StatusPagamento = Body(...),
+    numero_nd: Optional[str] = Body(None),
+    valor_nd: Optional[float] = Body(None),
+    dt_vencimento_nd: Optional[date] = Body(None),
+    observacoes_pagamento: Optional[str] = Body(None),
     service: SinistroAutomacaoService = Depends(get_sinistro_service),
     usuario: str = Depends(get_usuario_atual)
 ):
-    """Atualiza apenas o status do sinistro"""
+    """Atualiza especificamente dados de pagamento"""
     try:
-        dados_atualizacao = SinistroAutomacaoUpdate(status_sinistro=status)
+        dados = SinistroAutomacaoUpdate(
+            status_pagamento=status_pagamento,
+            numero_nd=numero_nd,
+            valor_nd=valor_nd,
+            dt_vencimento_nd=dt_vencimento_nd,
+            observacoes_pagamento=observacoes_pagamento
+        )
         
-        sinistro_atualizado = service.atualizar_sinistro(sinistro_id, dados_atualizacao, usuario)
+        sinistro = service.atualizar_sinistro(sinistro_id, dados, usuario)
         
-        if not sinistro_atualizado:
+        if not sinistro:
             raise HTTPException(status_code=404, detail="Sinistro não encontrado")
         
         return {
             "success": True,
-            "data": sinistro_atualizado,
-            "message": f"Status do sinistro atualizado para '{status}'"
+            "data": sinistro,
+            "message": f"Status de pagamento atualizado para: {status_pagamento.value}"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao atualizar status: {e}")
+        logger.error(f"Erro ao atualizar pagamento: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
-@router.put("/{sinistro_id}/descricao")
-async def atualizar_descricao_sinistro(
+@router.put("/{sinistro_id}/indenizacao")
+async def atualizar_dados_indenizacao(
     sinistro_id: int,
-    descricao: str = Body(...),
+    status_indenizacao: StatusIndenizacao = Body(...),
+    valor_indenizacao: Optional[float] = Body(None),
+    programacao_pagamento: Optional[Dict] = Body(None),
+    observacoes_indenizacao: Optional[str] = Body(None),
     service: SinistroAutomacaoService = Depends(get_sinistro_service),
     usuario: str = Depends(get_usuario_atual)
 ):
-    """Atualiza apenas a descrição do sinistro"""
+    """Atualiza especificamente dados de indenização"""
     try:
-        dados_atualizacao = SinistroAutomacaoUpdate(descricao=descricao)
+        dados = SinistroAutomacaoUpdate(
+            status_indenizacao=status_indenizacao,
+            valor_indenizacao=valor_indenizacao,
+            programacao_pagamento=programacao_pagamento,
+            observacoes_indenizacao=observacoes_indenizacao
+        )
         
-        sinistro_atualizado = service.atualizar_sinistro(sinistro_id, dados_atualizacao, usuario)
+        sinistro = service.atualizar_sinistro(sinistro_id, dados, usuario)
         
-        if not sinistro_atualizado:
+        if not sinistro:
             raise HTTPException(status_code=404, detail="Sinistro não encontrado")
         
         return {
             "success": True,
-            "data": sinistro_atualizado,
-            "message": "Descrição do sinistro atualizada com sucesso"
+            "data": sinistro,
+            "message": f"Status de indenização atualizado para: {status_indenizacao.value}"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erro ao atualizar descrição: {e}")
+        logger.error(f"Erro ao atualizar indenização: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.put("/{sinistro_id}/uso-interno")
+async def atualizar_uso_interno(
+    sinistro_id: int,
+    setor_responsavel: Optional[str] = Body(None),
+    responsavel_interno: Optional[str] = Body(None),
+    valor_liberado: Optional[float] = Body(None),
+    observacoes_internas: Optional[str] = Body(None),
+    service: SinistroAutomacaoService = Depends(get_sinistro_service),
+    usuario: str = Depends(get_usuario_atual)
+):
+    """Atualiza dados de uso interno"""
+    try:
+        dados = SinistroAutomacaoUpdate(
+            setor_responsavel=setor_responsavel,
+            responsavel_interno=responsavel_interno,
+            valor_liberado=valor_liberado,
+            observacoes_internas=observacoes_internas
+        )
+        
+        sinistro = service.atualizar_sinistro(sinistro_id, dados, usuario)
+        
+        if not sinistro:
+            raise HTTPException(status_code=404, detail="Sinistro não encontrado")
+        
+        return {
+            "success": True,
+            "data": sinistro,
+            "message": "Dados de uso interno atualizados com sucesso"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar uso interno: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+# ============================================================
+# ENDPOINTS DE ESTATÍSTICAS E RELATÓRIOS
+# ============================================================
+
+@router.get("/estatisticas/resumo", response_model=EstatisticasSinistros)
+async def obter_estatisticas(
+    service: SinistroAutomacaoService = Depends(get_sinistro_service)
+):
+    """Obtém estatísticas consolidadas dos sinistros"""
+    try:
+        stats = service.obter_estatisticas()
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+@router.get("/dashboard/metricas")
+async def obter_metricas_dashboard(
+    service: SinistroAutomacaoService = Depends(get_sinistro_service)
+):
+    """Obtém métricas para dashboard"""
+    try:
+        stats = service.obter_estatisticas()
+        
+        # Calcular métricas adicionais
+        total = stats.total_sinistros
+        taxa_conclusao = (stats.concluidos / total * 100) if total > 0 else 0
+        
+        return {
+            "success": True,
+            "data": {
+                "total_sinistros": total,
+                "em_andamento": stats.em_andamento,
+                "concluidos": stats.concluidos,
+                "taxa_conclusao": round(taxa_conclusao, 2),
+                "valor_total_prejuizo": float(stats.valor_total_prejuizo),
+                "sinistros_juridicos": stats.sinistros_com_acionamento_juridico,
+                "sinistros_seguradoras": stats.sinistros_com_acionamento_seguradora
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao obter métricas: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+
+# ============================================================
+# ENDPOINT DE SAÚDE DO SISTEMA
+# ============================================================
+
+@router.get("/health")
+async def verificar_saude():
+    """Verifica saúde do sistema de automação"""
+    try:
+        return {
+            "success": True,
+            "message": "Sistema de automação funcionando",
+            "timestamp": "2024-01-01T00:00:00Z",
+            "version": "1.0.0"
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na verificação de saúde: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}") 
