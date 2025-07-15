@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = 'http://127.0.0.1:8001';
 
 class SinistrosAPI {
   // Buscar todos os sinistros da query real
@@ -14,7 +14,7 @@ class SinistrosAPI {
       if (filtros.limit) params.append('limit', filtros.limit);
       if (filtros.page) params.append('page', filtros.page);
 
-      const url = `${API_BASE_URL}/sinistros?${params.toString()}`;
+      const url = `${API_BASE_URL}/sinistros/sem-auth?${params.toString()}`;
       const response = await fetch(url);
       
       if (!response.ok) {

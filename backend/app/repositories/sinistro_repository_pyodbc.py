@@ -127,6 +127,19 @@ class SinistroRepositoryPyODBC:
         # Ordem para resultados consistentes
         sql += " ORDER BY MOV.dt_Coleta DESC"
         
+        # LOGS DETALHADOS
+        print("[SinistroRepositoryPyODBC] Parâmetros recebidos:")
+        print(f"  dt_ini: {dt_ini}")
+        print(f"  dt_fim: {dt_fim}")
+        print(f"  cliente: {cliente}")
+        print(f"  nota_fiscal: {nota_fiscal}")
+        print(f"  conhecimento: {conhecimento}")
+        print(f"  limit: {limit}")
+        print("[SinistroRepositoryPyODBC] Query SQL final:")
+        print(sql)
+        print("[SinistroRepositoryPyODBC] Parâmetros SQL:")
+        print(params)
+        
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -147,11 +160,11 @@ class SinistroRepositoryPyODBC:
                 results.append(row_dict)
             
             conn.close()
-            print(f"✅ Encontrados {len(results)} sinistros")
+            print(f"Encontrados {len(results)} sinistros")
             return results
             
         except Exception as e:
-            print(f"❌ Erro ao buscar sinistros: {e}")
+            print(f"Erro ao buscar sinistros: {e}")
             logger.error(f"Erro detalhado ao buscar sinistros: {e}")
             raise
     
@@ -288,8 +301,8 @@ class SinistroRepositoryPyODBC:
             cursor.execute("SELECT 1")
             cursor.fetchone()
             conn.close()
-            print("✅ Conexão com banco de dados OK")
+            print("Conexão com banco de dados OK")
             return True
         except Exception as e:
-            print(f"❌ Erro na conexão: {e}")
+            print(f"Erro na conexão: {e}")
             return False

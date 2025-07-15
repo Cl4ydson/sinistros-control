@@ -7,6 +7,7 @@ import SinistrosUltraProfessional from './pages/SinistrosUltraProfessional';
 import RelatoriosUltraProfessional from './pages/RelatoriosUltraProfessional';
 import SinistrosSimple from './pages/SinistrosSimple';
 import EditarSinistro from './pages/EditarSinistro';
+import TestePage from './pages/TestePage';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="/sinistros" element={<SinistrosUltraProfessional />} />
             <Route path="/relatorios" element={<RelatoriosUltraProfessional />} />
             <Route path="/sinistros/editar/:id" element={<EditarSinistro />} />
+            <Route path="/teste" element={<TestePage />} />
             {/* Rotas do novo sistema ultra profissional */}
             <Route path="/analytics" element={<DashboardUltraProfessional />} />
             <Route path="/historico" element={<DashboardUltraProfessional />} />

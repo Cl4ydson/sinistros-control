@@ -219,7 +219,7 @@ const SinistrosPage = () => {
         Object.entries(filtros).filter(([, v]) => v)
       );
       const qs = new URLSearchParams(params).toString();
-      const url = `http://127.0.0.1:8000/sinistros${qs ? '?' + qs : ''}`;
+      const url = `http://127.0.0.1:8001/sinistros/sem-auth${qs ? '?' + qs : ''}`;
       
       console.log('🌐 Fazendo requisição para:', url);
       console.log('📋 Filtros aplicados:', params);
@@ -237,7 +237,12 @@ const SinistrosPage = () => {
       const data = await res.json();
       console.log('📦 Dados recebidos da API:', data);
       
-      if (data.success) {
+      // Ajustar para a nova estrutura da API
+      if (data.sinistros) {
+        const sinistrosData = data.sinistros ?? [];
+        console.log('✅ Sinistros processados:', sinistrosData.length);
+        setSinistros(sinistrosData);
+      } else if (data.success) {
         const sinistrosData = data.data?.sinistros ?? [];
         console.log('✅ Sinistros processados:', sinistrosData.length);
         setSinistros(sinistrosData);

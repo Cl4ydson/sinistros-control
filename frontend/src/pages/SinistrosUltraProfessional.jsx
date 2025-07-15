@@ -384,7 +384,14 @@ const SinistrosUltraProfessional = () => {
       const filterParams = { ...filtros, ...customFilters };
       const result = await SinistrosAPI.listarSinistros(filterParams);
       
-      if (result.success) {
+      // Ajustar para a nova estrutura da API
+      if (result.sinistros) {
+        setSinistros(result.sinistros || []);
+        // Também atualizar as estatísticas se disponíveis
+        if (result.estatisticas) {
+          setEstatisticas(result.estatisticas);
+        }
+      } else if (result.success) {
         setSinistros(result.data.items || []);
       } else {
         setError('Erro ao carregar sinistros');
