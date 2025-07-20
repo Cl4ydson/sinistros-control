@@ -132,8 +132,19 @@ const EditarSinistro = () => {
   const loadSinistro = async (sinistroId) => {
     setLoading(true);
     try {
-      // Tentar carregar da API de automação primeiro
-      const result = await SinistrosAPI.obterSinistroAutomacao(sinistroId);
+      // Primeiro tentar carregar da API de automação
+      let result;
+      try {
+        // Tentar buscar por ID primeiro
+        result = await SinistrosAPI.obterSinistroAutomacao(sinistroId);
+      } catch (error) {
+        // Se der 404, tentar buscar pela nota fiscal na API de automação
+        try {
+          result = await SinistrosAPI.obterSinistroAutomacaoPorNota(sinistroId);
+        } catch {
+          result = { success: false };
+        }
+      }
       
       if (result.success && result.data) {
         // Mapear dados da API de automação para o formato do frontend
@@ -180,7 +191,10 @@ const EditarSinistro = () => {
           dataAberturaSeguradora: dadosAPI.data_abertura_seguradora || '',
           programacaoIndenizacaoSeguradora: dadosAPI.programacao_indenizacao_seguradora || '',
           
-          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || ''
+          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || '',
+          
+          // Carregar programação de pagamento se existir
+          programacaoPagamento: dadosAPI.programacao_pagamento || [{ data: '', valor: '', doctoESL: '' }]
         });
       }
     } catch (error) {
@@ -254,12 +268,15 @@ const EditarSinistro = () => {
         status_seguradora: sinistro.statusSeguradora,
         nome_seguradora: sinistro.seguradora,
         data_abertura_seguradora: sinistro.dataAberturaSeguradora,
-        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora
+        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora,
+        
+        // Programação de pagamento
+        programacao_pagamento: sinistro.programacaoPagamento
       };
 
-      // Chamar API de automação para salvar na tabela Sinistros
-      const response = await fetch(`http://127.0.0.1:8001/api/automacao/sinistros/${id}`, {
-        method: 'PUT',
+      // Chamar API de automação para salvar na tabela Sinistros (criar ou atualizar)
+      const response = await fetch(`http://127.0.0.1:8003/api/automacao/sinistros/criar-ou-atualizar/${id}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },

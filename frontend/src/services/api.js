@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8001';
+const API_BASE_URL = 'http://127.0.0.1:8003';
 
 class SinistrosAPI {
   // Buscar todos os sinistros da query real
@@ -175,7 +175,7 @@ class SinistrosAPI {
 
   // ===== MÉTODOS PARA API DE AUTOMAÇÃO (Tabela Sinistros) =====
   
-  // Obter sinistro da tabela de automação
+  // Obter sinistro da tabela de automação por ID
   static async obterSinistroAutomacao(sinistroId) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/${sinistroId}`);
@@ -188,6 +188,23 @@ class SinistrosAPI {
       return result;
     } catch (error) {
       console.error('Erro ao obter sinistro da automação:', error);
+      throw error;
+    }
+  }
+
+  // Obter sinistro da tabela de automação por nota fiscal
+  static async obterSinistroAutomacaoPorNota(notaFiscal) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/nota/${notaFiscal}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao obter sinistro da automação por nota:', error);
       throw error;
     }
   }
