@@ -1,9 +1,58 @@
+import { 
+  mockSinistros, 
+  mockDashboardData, 
+  mockEstatisticas, 
+  mockRelatorioPrejuizo, 
+  simulateApiDelay 
+} from './mockData.js';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8003';
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+
+// Check if backend is available
+let backendAvailable = null;
+
+const checkBackendConnection = async () => {
+  if (DEMO_MODE) return false;
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/sinistros/test/connection`, {
+      method: 'GET',
+      timeout: 3000 // 3 second timeout
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn('Backend not available, switching to demo mode:', error.message);
+    return false;
+  }
+};
+
+// Wrapper function to handle API calls with fallback
+const apiWithFallback = async (apiCall, fallbackData) => {
+  if (backendAvailable === null) {
+    backendAvailable = await checkBackendConnection();
+  }
+  
+  if (!backendAvailable) {
+    console.log('Using demo data - backend not available');
+    await simulateApiDelay();
+    return fallbackData;
+  }
+  
+  try {
+    return await apiCall();
+  } catch (error) {
+    console.warn('API call failed, falling back to demo data:', error.message);
+    backendAvailable = false;
+    await simulateApiDelay();
+    return fallbackData;
+  }
+};
 
 class SinistrosAPI {
   // Buscar todos os sinistros da query real
   static async listarSinistros(filtros = {}) {
-    try {
+    const apiCall = async () => {
       const params = new URLSearchParams();
       
       if (filtros.dt_ini) params.append('dt_ini', filtros.dt_ini);
@@ -21,12 +70,18 @@ class SinistrosAPI {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Erro ao buscar sinistros:', error);
-      throw error;
-    }
+      return await response.json();
+    };
+
+    const fallbackData = {
+      sinistros: mockSinistros,
+      total: mockSinistros.length,
+      page: filtros.page || 1,
+      limit: filtros.limit || 50,
+      demo_mode: true
+    };
+
+    return await apiWithFallback(apiCall, fallbackData);
   }
 
   // Buscar sinistro específico
@@ -73,7 +128,7 @@ class SinistrosAPI {
 
   // Obter estatísticas
   static async obterEstatisticas(filtros = {}) {
-    try {
+    const apiCall = async () => {
       const params = new URLSearchParams();
       
       if (filtros.dt_ini) params.append('dt_ini', filtros.dt_ini);
@@ -86,29 +141,25 @@ class SinistrosAPI {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Erro ao obter estatísticas:', error);
-      throw error;
-    }
+      return await response.json();
+    };
+
+    return await apiWithFallback(apiCall, mockEstatisticas);
   }
 
   // Dashboard resumo expandido
   static async obterDashboardResumo() {
-    try {
+    const apiCall = async () => {
       const response = await fetch(`${API_BASE_URL}/sinistros/dashboard/resumo`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Erro ao obter dashboard:', error);
-      throw error;
-    }
+      return await response.json();
+    };
+
+    return await apiWithFallback(apiCall, mockDashboardData);
   }
 
   // Relatório de prejuízos
@@ -137,19 +188,24 @@ class SinistrosAPI {
 
   // Testar conexão
   static async testarConexao() {
-    try {
+    const apiCall = async () => {
       const response = await fetch(`${API_BASE_URL}/sinistros/test/connection`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Erro ao testar conexão:', error);
-      throw error;
-    }
+      return await response.json();
+    };
+
+    const fallbackData = {
+      status: "Demo Mode",
+      message: "Backend não disponível. Usando dados de demonstração.",
+      database_status: "Simulado",
+      demo_mode: true
+    };
+
+    return await apiWithFallback(apiCall, fallbackData);
   }
 
   // Atualizar status de pagamento
