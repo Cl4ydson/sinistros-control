@@ -47,18 +47,71 @@ def dashboard_resumo():
 def estatisticas_resumo():
     return {"success": True, "data": {}}
 
+@router.get("/debug-new")
+def debug_new_endpoint():
+    import pyodbc
+    return {"message": "New endpoint works", "drivers": pyodbc.drivers()}
+
 @router.get("/test/connection")
 def test_connection():
-    return {"success": True, "message": "Conexão OK"}
+    repo = SinistroRepositoryPyODBC()
+    result = repo.test_connection()
+    return {
+        "success": result, 
+        "message": "Conexão OK" if result else "Falha na conexão",
+        "connection_string": repo.conn_str
+    }
 
 @router.get("/teste-todos")
 def teste_todos_sinistros():
+    import pyodbc
+    import sys
+    import os
+    
     repo = SinistroRepositoryPyODBC()
+    
+    debug_info = {
+        "python_executable": sys.executable,
+        "working_directory": os.getcwd(),
+        "available_drivers": pyodbc.drivers(),
+        "repo_conn_str": repo.conn_str
+    }
+    
     try:
-        sinistros = repo.buscar_sinistros(limit=100)
-        return {"total": len(sinistros), "sinistros": sinistros}
+        # First test basic connection
+        conn_test = repo.test_connection()
+        debug_info["basic_connection_test"] = conn_test
+        
+        if not conn_test:
+            return {"erro": "Falha na conexão básica", "debug": debug_info}
+        
+        # Test direct pyodbc connection
+        try:
+            conn = pyodbc.connect(repo.conn_str)
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            result = cursor.fetchone()
+            conn.close()
+            debug_info["direct_pyodbc_test"] = f"SUCCESS: {result[0]}"
+        except Exception as e:
+            debug_info["direct_pyodbc_test"] = f"ERROR: {str(e)}"
+        
+        # Then test the query
+        sinistros = repo.buscar_sinistros(limit=2)
+        return {
+            "total": len(sinistros), 
+            "sinistros": sinistros,
+            "debug": debug_info,
+            "success": True
+        }
     except Exception as e:
-        return {"erro": str(e)}
+        import traceback
+        return {
+            "erro": str(e), 
+            "traceback": traceback.format_exc(),
+            "debug": debug_info,
+            "success": False
+        }
 
 @router.get("/sem-auth")
 def list_sinistros_sem_auth(

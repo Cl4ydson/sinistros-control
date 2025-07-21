@@ -14,7 +14,7 @@ class SinistroRepositoryPyODBC:
     """Repository usando pyodbc diretamente"""
     
     def __init__(self):
-        self.conn_str = "DRIVER={ODBC Driver 17 for SQL Server};SERVER=137.131.246.149;DATABASE=dtbTransporte;UID=consulta.pbi;PWD=Br$Samor@2025#C;TrustServerCertificate=yes;"
+        self.conn_str = "DRIVER={SQL Server};SERVER=137.131.246.149;DATABASE=dtbTransporte;UID=consulta.pbi;PWD=Br$Samor@2025#C;TrustServerCertificate=yes;"
     
     def _get_connection(self):
         """Cria uma nova conexão"""

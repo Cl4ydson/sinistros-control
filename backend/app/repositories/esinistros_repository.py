@@ -17,7 +17,7 @@ class ESinistrosRepository:
     def __init__(self):
         # Credenciais do banco AUTOMACAO_BRSAMOR
         self.conn_str = (
-            "DRIVER={ODBC Driver 17 for SQL Server};"
+            "DRIVER={SQL Server};"
             "SERVER=SRVTOTVS02;"
             "DATABASE=AUTOMACAO_BRSAMOR;"
             "UID=adm;"

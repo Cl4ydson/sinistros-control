@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
 from .routers import auth, sinistros, automacao
 
-# cria as tabelas se não existirem
-Base.metadata.create_all(bind=engine)
+# REMOVIDO: Base.metadata.create_all(bind=engine) 
+# As tabelas já existem nos bancos de dados
 
 app = FastAPI(
     title="Sinistros Control API",
