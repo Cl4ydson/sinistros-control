@@ -6,46 +6,73 @@ import {
   simulateApiDelay 
 } from './mockData.js';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8003';
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
+import { API_BASE_URL, APP_CONFIG, shouldUseDemoMode } from '../config/environment.js';
 
-// Check if backend is available
+// Backend availability state
 let backendAvailable = null;
 
 const checkBackendConnection = async () => {
-  if (DEMO_MODE) return false;
+  // Check if demo mode should be used
+  if (shouldUseDemoMode()) {
+    console.log('🎭 Demo mode: Using simulated data');
+    return false;
+  }
   
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.demo.timeout);
+    
     const response = await fetch(`${API_BASE_URL}/sinistros/test/connection`, {
       method: 'GET',
-      timeout: 3000 // 3 second timeout
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
-    return response.ok;
+    
+    clearTimeout(timeoutId);
+    const isAvailable = response.ok;
+    
+    if (isAvailable) {
+      console.log('✅ Backend connection successful');
+    } else {
+      console.warn('❌ Backend responded with error:', response.status);
+    }
+    
+    return isAvailable;
   } catch (error) {
-    console.warn('Backend not available, switching to demo mode:', error.message);
+    console.warn('❌ Backend not available, switching to demo mode:', error.message);
     return false;
   }
 };
 
 // Wrapper function to handle API calls with fallback
 const apiWithFallback = async (apiCall, fallbackData) => {
+  // Force demo mode check first
+  if (shouldUseDemoMode()) {
+    console.log('🎭 Using demo data - demo mode enabled');
+    await simulateApiDelay();
+    return { ...fallbackData, demo_mode: true };
+  }
+  
   if (backendAvailable === null) {
     backendAvailable = await checkBackendConnection();
   }
   
   if (!backendAvailable) {
-    console.log('Using demo data - backend not available');
+    console.log('🎭 Using demo data - backend not available');
     await simulateApiDelay();
-    return fallbackData;
+    return { ...fallbackData, demo_mode: true };
   }
   
   try {
-    return await apiCall();
+    const result = await apiCall();
+    return { ...result, demo_mode: false };
   } catch (error) {
-    console.warn('API call failed, falling back to demo data:', error.message);
+    console.warn('❌ API call failed, falling back to demo data:', error.message);
     backendAvailable = false;
     await simulateApiDelay();
-    return fallbackData;
+    return { ...fallbackData, demo_mode: true };
   }
 };
 

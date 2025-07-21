@@ -52,7 +52,9 @@ export const mockDashboardData = {
   roubos: 156,
   sinistradas: 250,
   valor_total_prejuizo: 2450000.00,
-  status_conexao: "Demo Mode - Dados simulados"
+  status_conexao: "🎭 Demo Mode - Dados simulados",
+  demo_mode: true,
+  message: "Sistema funcionando em modo demonstração com dados simulados."
 };
 
 export const mockEstatisticas = {
