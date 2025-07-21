@@ -9,4 +9,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
   },
+  define: {
+    // Make sure environment variables are available in production
+    'process.env': {}
+  }
 });

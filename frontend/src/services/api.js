@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8003';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8003';
 
 class SinistrosAPI {
   // Buscar todos os sinistros da query real
@@ -32,14 +32,39 @@ class SinistrosAPI {
   // Buscar sinistro específico
   static async obterSinistro(sinistroId) {
     try {
-      const response = await fetch(`${API_BASE_URL}/sinistros/${sinistroId}`);
+      // Primeiro tentar buscar por ID exato
+      let response = await fetch(`${API_BASE_URL}/sinistros/sem-auth?id=${sinistroId}`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      const result = await response.json();
-      return result;
+      let result = await response.json();
+      
+      // Se encontrou resultados, retornar o primeiro
+      if (result.sinistros && result.sinistros.length > 0) {
+        return {
+          success: true,
+          data: result.sinistros[0] // Pegar o primeiro resultado
+        };
+      }
+      
+      // Se não encontrou por ID, tentar buscar pela nota fiscal (caso o ID seja na verdade uma nota)
+      response = await fetch(`${API_BASE_URL}/sinistros/sem-auth?nota_fiscal=${sinistroId}`);
+      result = await response.json();
+      
+      if (result.sinistros && result.sinistros.length > 0) {
+        return {
+          success: true,
+          data: result.sinistros[0] // Pegar o primeiro resultado
+        };
+      }
+      
+      // Se não encontrou nada
+      return {
+        success: false,
+        data: null
+      };
     } catch (error) {
       console.error('Erro ao obter sinistro:', error);
       throw error;
