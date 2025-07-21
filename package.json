@@ -5,10 +5,13 @@
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
     "dev": "cd frontend && npm run dev",
-    "preview": "cd frontend && npm run preview"
+    "preview": "cd frontend && npm run preview",
+    "start": "cd frontend && npm run preview"
   },
   "engines": {
     "node": ">=18.0.0",
-    "npm": ">=8.0.0"
-  }
+    "npm": ">=9.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {}
 }
