@@ -47,10 +47,33 @@ def dashboard_resumo():
 def estatisticas_resumo():
     return {"success": True, "data": {}}
 
-@router.get("/debug-new")
-def debug_new_endpoint():
+@router.get("/debug-connection")
+def debug_connection():
+    """Debug endpoint ultra-simples"""
     import pyodbc
-    return {"message": "New endpoint works", "drivers": pyodbc.drivers()}
+    
+    try:
+        # Teste direto sem repository
+        conn_str = "DRIVER={SQL Server};SERVER=137.131.246.149;DATABASE=dtbTransporte;UID=consulta.pbi;PWD=Br$Samor@2025#C;TrustServerCertificate=yes;"
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 as test")
+        result = cursor.fetchone()
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": "Conexão direta funcionou",
+            "result": result[0],
+            "drivers": pyodbc.drivers()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "drivers": pyodbc.drivers()
+        }
 
 @router.get("/test/connection")
 def test_connection():
