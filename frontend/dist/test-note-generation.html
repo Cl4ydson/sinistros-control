@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Geração de Nota</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .field { margin: 20px 0; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .readonly { background: #f8f9fa; color: #6c757d; }
+        .result { margin: 10px 0; padding: 10px; background: #d4edda; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 Teste: Geração Automática de Número da Nota</h1>
+        
+        <div class="field">
+            <label>Número da Nota (Simulação de novo sinistro):</label>
+            <input type="text" id="notaNova" placeholder="Clique em 'Gerar' para preencher automaticamente">
+            <button onclick="generateNotaForNewRecord()">🔄 Gerar Automaticamente</button>
+        </div>
+        
+        <div class="field">
+            <label>Número da Nota (Simulação do banco de dados):</label>
+            <input type="text" id="notaReadOnly" value="123456789" class="readonly" readonly>
+            <span style="color: green;">✓ Preenchido automaticamente do banco</span>
+        </div>
+        
+        <div class="field">
+            <label>Número da Nota (Simulação campo vazio):</label>
+            <input type="text" id="notaVazia" placeholder="Ex: 123456">
+            <button onclick="fillEmptyField()">🔢 Gerar se vazio</button>
+        </div>
+        
+        <div class="result" id="resultado">
+            <strong>Resultados aparecerão aqui...</strong>
+        </div>
+        
+        <div class="field">
+            <h3>Teste Contínuo:</h3>
+            <button onclick="startContinuousGeneration()">▶️ Iniciar Geração Contínua</button>
+            <button onclick="stopContinuousGeneration()">⏹️ Parar</button>
+            <div id="continuous" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Função exata do React (copiada do código)
+        const generateNotaNumber = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hour = String(now.getHours()).padStart(2, '0');
+            const minute = String(now.getMinutes()).padStart(2, '0');
+            const second = String(now.getSeconds()).padStart(2, '0');
+            
+            return `NF${year}${month}${day}${hour}${minute}${second}`;
+        };
+
+        function generateNotaForNewRecord() {
+            const nota = generateNotaNumber();
+            document.getElementById('notaNova').value = nota;
+            document.getElementById('resultado').innerHTML = `
+                <strong>✅ Novo número gerado:</strong> ${nota}<br>
+                <small>Formato: NF + YYYYMMDDHHMMSS</small><br>
+                <small>Timestamp: ${new Date().toLocaleString('pt-BR')}</small>
+            `;
+        }
+
+        function fillEmptyField() {
+            const field = document.getElementById('notaVazia');
+            if (!field.value.trim()) {
+                const nota = generateNotaNumber();
+                field.value = nota;
+                document.getElementById('resultado').innerHTML = `
+                    <strong>✅ Campo vazio preenchido:</strong> ${nota}<br>
+                    <small>Comportamento: Só preenche se campo estiver vazio</small>
+                `;
+            } else {
+                document.getElementById('resultado').innerHTML = `
+                    <strong>ℹ️ Campo já preenchido:</strong> ${field.value}<br>
+                    <small>Comportamento: Não sobrescreve valores existentes</small>
+                `;
+            }
+        }
+
+        let intervalId = null;
+        function startContinuousGeneration() {
+            if (intervalId) return;
+            
+            intervalId = setInterval(() => {
+                const nota = generateNotaNumber();
+                const div = document.getElementById('continuous');
+                const time = new Date().toLocaleString('pt-BR');
+                div.innerHTML = `<div><strong>${time}:</strong> ${nota}</div>` + div.innerHTML;
+                
+                // Manter apenas os últimos 10 registros
+                const children = div.children;
+                if (children.length > 10) {
+                    div.removeChild(children[children.length - 1]);
+                }
+            }, 1000);
+        }
+
+        function stopContinuousGeneration() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+        }
+
+        // Carregar com geração automática (simula novo sinistro)
+        window.onload = function() {
+            generateNotaForNewRecord();
+        }
+    </script>
+</body>
+</html>

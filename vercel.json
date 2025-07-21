@@ -3,6 +3,9 @@
   "name": "sinistros-control",
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
+  "env": {
+    "VITE_DEMO_MODE": "true"
+  },
   "routes": [
     {
       "handle": "filesystem"

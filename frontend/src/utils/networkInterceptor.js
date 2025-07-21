@@ -1,35 +1,33 @@
-// Network Interceptor - FORÇA BRUTA para bloquear TODAS as conexões localhost em produção
+// Network Interceptor - Demo Mode Only
 import { shouldUseDemoMode } from '../config/environment.js';
 import { mockSinistros, mockDashboardData, simulateApiDelay } from '../services/mockData.js';
 
-// Override global fetch se estivermos em modo demo
+// Only intercept in demo mode
 if (shouldUseDemoMode()) {
-  console.log('🚨 NETWORK INTERCEPTOR ACTIVATED - Blocking all network requests in production');
+  console.log('🎭 DEMO MODE NETWORK INTERCEPTOR ACTIVATED');
   
   const originalFetch = window.fetch;
   
   window.fetch = async function(url, options) {
-    console.log('🚫 BLOCKED FETCH:', url);
+    console.log('🚫 DEMO MODE - INTERCEPTING FETCH:', url);
     
-    // Analyze URL to return appropriate mock data
     await simulateApiDelay();
     
     let mockResponse;
     
-    if (url.includes('/sinistros')) {
+    if (typeof url === 'string' && url.includes('/sinistros')) {
       mockResponse = {
         sinistros: mockSinistros,
         total: mockSinistros.length,
         demo_mode: true,
-        message: "Demo mode - dados simulados"
+        message: "Demo mode ativo - dados simulados"
       };
-    } else if (url.includes('/dashboard')) {
+    } else if (typeof url === 'string' && url.includes('/dashboard')) {
       mockResponse = mockDashboardData;
     } else {
-      // Default response for any other endpoint
       mockResponse = {
         demo_mode: true,
-        message: "Demo mode - operação simulada",
+        message: "Demo mode ativo - operação simulada",
         data: null
       };
     }
@@ -44,10 +42,8 @@ if (shouldUseDemoMode()) {
   };
   
   // Also override XMLHttpRequest for axios
-  const originalXHR = window.XMLHttpRequest;
-  
   window.XMLHttpRequest = function() {
-    console.log('🚫 BLOCKED XMLHttpRequest - Demo Mode Active');
+    console.log('🚫 DEMO MODE - INTERCEPTING XMLHttpRequest');
     
     const mockXHR = {
       open: function(method, url) {
@@ -59,7 +55,6 @@ if (shouldUseDemoMode()) {
           this.readyState = 4;
           this.status = 200;
           
-          // Provide contextual mock data based on URL
           let responseData;
           if (this._url && this._url.includes('/sinistros')) {
             responseData = {
@@ -70,7 +65,7 @@ if (shouldUseDemoMode()) {
           } else {
             responseData = {
               demo_mode: true,
-              message: "Demo mode - operação simulada"
+              message: "Demo mode ativo"
             };
           }
           
@@ -100,22 +95,7 @@ if (shouldUseDemoMode()) {
     return mockXHR;
   };
   
-  // Block WebSocket connections too
-  const originalWebSocket = window.WebSocket;
-  window.WebSocket = function(url) {
-    console.log('🚫 BLOCKED WebSocket:', url);
-    throw new Error('WebSocket connections are disabled in demo mode');
-  };
-  
-  // Block EventSource (SSE) connections
-  const originalEventSource = window.EventSource;
-  window.EventSource = function(url) {
-    console.log('🚫 BLOCKED EventSource:', url);
-    throw new Error('EventSource connections are disabled in demo mode');
-  };
-  
-  console.log('✅ Complete Network interceptor configured - All network requests blocked');
-  console.log('📡 All requests will return contextual mock data');
+  console.log('✅ Demo Mode Network Interceptor Configured');
 }
 
 export default {};

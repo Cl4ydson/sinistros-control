@@ -18,6 +18,12 @@ const checkBackendConnection = async () => {
     return false;
   }
   
+  // If no API_BASE_URL is configured, use demo mode
+  if (!API_BASE_URL || API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1')) {
+    console.log('🎭 No production API configured, using demo mode');
+    return false;
+  }
+  
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.demo.timeout);
