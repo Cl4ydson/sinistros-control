@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL, shouldUseDemoMode } from '../config/environment.js';
+import { mockSinistros, simulateApiDelay } from '../services/mockData.js';
 
 const DebugSinistros = () => {
   const [dados, setDados] = useState(null);
@@ -12,7 +14,25 @@ const DebugSinistros = () => {
     try {
       console.log('🔧 Testando API...');
       
-      const url = 'http://127.0.0.1:8001/sinistros/sem-auth?limit=5';
+      // Check if we should use demo mode
+      if (shouldUseDemoMode()) {
+        console.log('🎭 Using demo mode - simulating API response');
+        await simulateApiDelay();
+        
+        const mockResponse = {
+          sinistros: mockSinistros.slice(0, 5),
+          total: mockSinistros.length,
+          estatisticas: {
+            total_sinistros: 1247,
+            demo_mode: true
+          }
+        };
+        
+        setDados(mockResponse);
+        return;
+      }
+      
+      const url = `${API_BASE_URL}/sinistros/sem-auth?limit=5`;
       console.log('📡 URL:', url);
       
       const response = await fetch(url);

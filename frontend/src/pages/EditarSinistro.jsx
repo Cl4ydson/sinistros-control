@@ -26,6 +26,7 @@ import UltraProfessionalLayout from '../components/Layout/UltraProfessionalLayou
 import { useTheme } from '../contexts/ThemeContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import SinistrosAPI from '../services/api';
+import { API_BASE_URL, shouldUseDemoMode } from '../config/environment';
 
 const EditarSinistro = () => {
   const { isDark } = useTheme();
@@ -353,8 +354,16 @@ const EditarSinistro = () => {
         programacao_pagamento: sinistro.programacaoPagamento
       };
 
+      // Check if demo mode is active
+      if (shouldUseDemoMode()) {
+        console.log('🎭 Demo mode: Simulating save operation');
+        alert('✅ Dados salvos com sucesso! (Modo demonstração)');
+        navigate(-1);
+        return;
+      }
+
       // Chamar API de automação para salvar na tabela Sinistros (criar ou atualizar)
-      const response = await fetch(`http://127.0.0.1:8003/api/automacao/sinistros/criar-ou-atualizar/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/criar-ou-atualizar/${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
