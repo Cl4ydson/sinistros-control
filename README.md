@@ -1,239 +1,226 @@
-Sistema de Controle de Sinistros
-Um sistema completo de gestão de incidentes de transporte, com integração de dados em tempo real e uma interface web moderna.
+# 🚀 Sistema de Gestão de Sinistros ULTRATHINK
 
-Visão geral
-Esta solução permite o gerenciamento integral de sinistros de transporte, integrando-se diretamente a um banco de dados SQL Server com mais de 8 000 registros reais. A arquitetura combina FastAPI no backend e React no frontend, assegurando alto desempenho e excelente experiência do usuário.
+Sistema ultra profissional para gestão completa de sinistros de transporte com dados reais e interface moderna.
 
-Funcionalidades
-Integração de dados em tempo real
-Conexão direta ao SQL Server
+## ✨ Características ULTRATHINK
 
-Mais de 8 000 ocorrências reais
+### 🎯 **Dados Reais**
+- Conexão direta com banco SQL Server
+- Mais de 8.000 registros de sinistros reais
+- Query otimizada para performance máxima
+- Sincronização em tempo real
 
-Consultas otimizadas para máximo desempenho
+### 🎨 **Interface Ultra Profissional**
+- Design moderno e responsivo
+- Modo escuro/claro com cores otimizadas
+- Componentes reutilizáveis e escaláveis
+- Experiência de usuário otimizada
 
-Sincronização instantânea
+### 📊 **Dashboard Avançado**
+- Métricas em tempo real
+- Cards com cores vibrantes no modo escuro
+- Análises de desempenho
+- Alertas e notificações
 
-Interface moderna
-Design responsivo com temas claro/escuro
+### 🔍 **Gestão Completa**
+- Filtros avançados
+- Busca inteligente
+- Exportação de dados
+- Paginação eficiente
 
-Componentes reutilizáveis e escaláveis
+## 🏗️ Arquitetura
 
-Experiência de usuário aprimorada
-
-Dashboard profissional com métricas em tempo real
-
-Gestão avançada
-Filtros avançados e busca inteligente
-
-Exportação de dados (CSV/Excel/PDF)
-
-Paginação eficiente
-
-Ordenação de colunas
-
-Arquitetura
-scss
-Copiar
-Editar
-├── Backend (FastAPI + Python)
-│   ├── REST API completa
-│   ├── Conexão SQL Server
-│   ├── Validação com Pydantic
-│   └── Documentação automática
+```
+├── 🔧 Backend (FastAPI + Python)
+│   ├── 📊 API REST completa
+│   ├── 🗄️ Conexão SQL Server
+│   ├── 📋 Validação com Pydantic
+│   └── 📖 Documentação automática
 │
-├── Frontend (React + Vite)
-│   ├── React 18 com Hooks
-│   ├── Tailwind CSS
-│   ├── React Router
-│   └── Temas dinâmicos
+├── 🎨 Frontend (React + Vite)
+│   ├── ⚛️ React 18 + Hooks
+│   ├── 🎨 Tailwind CSS
+│   ├── 🧭 React Router
+│   └── 🌙 Tema dinâmico
 │
-└── Integração
-    ├── CORS configurado
-    ├── API RESTful
-    └── Design responsivo
-Início rápido
-Instalação automática (recomendado)
-bash
-Copiar
-Editar
-# Executa o sistema completo
+└── 🔗 Integração
+    ├── 🌐 CORS configurado
+    ├── 🔄 API RESTful
+    └── 📱 Design responsivo
+```
+
+## 🚀 Início Rápido
+
+### 1. **Inicialização Automática (Recomendado)**
+```bash
+# Execute o script completo
 start_complete_system_ultrathink.bat
-Instalação manual
-Backend
-bash
-Copiar
-Editar
+```
+
+### 2. **Inicialização Manual**
+
+#### Backend:
+```bash
 cd backend
 python -m venv venv
 venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-Frontend
-bash
-Copiar
-Editar
+```
+
+#### Frontend:
+```bash
 cd frontend
 npm install
 npm run dev
-Pontos de acesso
-Frontend: http://localhost:5173
+```
 
-Documentação da API (Swagger): http://localhost:8000/docs
+## 🌐 Acesso ao Sistema
 
-API ReDoc: http://localhost:8000/redoc
+- **Frontend**: http://localhost:5173
+- **API Swagger**: http://localhost:8000/docs
+- **API ReDoc**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/health
 
-Health Check: http://localhost:8000/health
+## 📋 Funcionalidades Implementadas
 
-Stack de tecnologias
-Backend
-FastAPI – Framework web moderno e rápido
+### 🎯 **Dashboard Ultra Profissional**
+- ✅ Métricas principais (Total, Avarias, Extravios, Roubos, Sinistradas)
+- ✅ Cards com cores vibrantes no modo escuro
+- ✅ Análise de desempenho
+- ✅ Sinistros recentes
+- ✅ Status de conexão em tempo real
+- ✅ Seletor de período (7, 30, 90, 365 dias)
 
-SQLAlchemy – ORM para bancos relacionais
+### 📊 **Gestão de Sinistros**
+- ✅ Lista completa com dados reais
+- ✅ Filtros avançados (data, cliente, NF, conhecimento)
+- ✅ Busca inteligente
+- ✅ Paginação otimizada
+- ✅ Ordenação por colunas
+- ✅ Visualização responsiva
+- ✅ Formulários com dropdowns (sem radio buttons)
 
-Pydantic – Validação e tipagem de dados
+### 🔧 **Componentes ULTRATHINK**
+- ✅ `MetricCard` - Cards de métricas com cores otimizadas
+- ✅ `DataTable` - Tabela de dados avançada
+- ✅ `LoadingSpinner` - Indicador de carregamento
+- ✅ Layout ultra profissional
+- ✅ Tema dinâmico (escuro/claro)
 
-PyODBC – Conexão com SQL Server
+### 🗄️ **Backend Robusto**
+- ✅ API REST completa
+- ✅ Conexão PyODBC otimizada
+- ✅ Endpoints especializados
+- ✅ Validação com Pydantic
+- ✅ Documentação automática
+- ✅ CORS configurado
 
-Uvicorn – Servidor ASGI
+## 📊 Dados da Query
 
-Frontend
-React 18 – Biblioteca para interfaces de usuário
+### 🔍 **Query Principal**
+A query acessa as seguintes tabelas:
+- `tbdOcorrenciaNota` - Ocorrências por nota fiscal
+- `tbdOcorrencia` - Tipos de ocorrência
+- `tbdMovimento` - Movimentações de carga
+- `tbdMovimentoNotaFiscal` - Relação movimento/NF
 
-Vite – Ferramenta de build ultra-rápida
+### 📈 **Tipos de Sinistro**
+- **Avaria Parcial/Total** - Danos à mercadoria
+- **Extravio Parcial/Total** - Perda de mercadoria
+- **Roubo de Carga** - Furto durante transporte
+- **Mercadoria Sinistrada** - Casos concluídos
 
-Tailwind CSS – CSS utilitário
+### 🏢 **Dados Capturados**
+- Nota Fiscal
+- Conhecimento/Minuta
+- Remetente e Destinatário
+- Datas (coleta, evento, cadastro)
+- Tipos e descrições de ocorrência
+- Status e referências
 
-React Router – Roteamento client-side
+## 🎨 Melhorias Recentes
 
-Context API – Gerenciamento de estado
+### 🌙 **Modo Escuro Otimizado**
+- ✅ Cards com cores vibrantes e melhor contraste
+- ✅ Backgrounds com transparência e bordas definidas
+- ✅ Ícones com cores temáticas por tipo de sinistro
+- ✅ Títulos e valores sempre legíveis
 
-Esquema de banco de dados
-Tabelas principais integradas:
+### 🎯 **Interface Limpa**
+- ✅ Conversão de radio buttons para dropdowns
+- ✅ Layout consistente em todos os formulários
+- ✅ Melhor acessibilidade e usabilidade
+- ✅ Projeto organizado sem arquivos desnecessários
 
-Tabela	Descrição
-tbdOcorrenciaNota	Anotações de sinistros
-tbdOcorrencia	Tipos de sinistros
-tbdMovimento	Movimentações de carga
-tbdMovimentoNotaFiscal	Relação movimento × nota fiscal
+## 🚀 Próximos Passos
 
-Tipos de sinistro
-Avaria Parcial/Total – Danos à mercadoria
+### 📊 **Fase 2 - Analytics Avançado**
+- [ ] Gráficos interativos (Chart.js)
+- [ ] Relatórios em PDF/Excel
+- [ ] Filtros de data inteligentes
+- [ ] Dashboards personalizáveis
 
-Perda Parcial/Total – Perda de mercadoria
+### 🔄 **Fase 3 - Funcionalidades Expandidas**
+- [ ] CRUD completo de sinistros
+- [ ] Upload de documentos
+- [ ] Workflow de aprovação
+- [ ] Notificações em tempo real
 
-Roubo de Carga – Subtração durante o transporte
+### 🛡️ **Fase 4 - Segurança e Compliance**
+- [ ] Autenticação JWT
+- [ ] Controle de acesso por perfil
+- [ ] Auditoria completa
+- [ ] Backup automático
 
-Mercadoria Danificada – Casos concluídos
+## 👥 Desenvolvimento
 
-Principais componentes
-Dashboard
-Métricas em tempo real
+### 🏗️ **Padrões ULTRATHINK**
+- **Arquitetura**: Clean Architecture
+- **Componentes**: Reutilizáveis e escaláveis
+- **Estado**: Context API + Local State
+- **Design**: Mobile-first e responsivo
+- **Cores**: Otimizadas para ambos os temas
 
-Seletor de período (7, 30, 90, 365 dias)
-
-Monitoramento de status da conexão
-
-Visão geral de incidentes recentes
-
-Gestão de dados
-Sistema de filtros avançados
-
-Busca inteligente
-
-Paginação otimizada
-
-Tabelas responsivas
-
-Endpoints da API
-/api/sinistros – Gestão de ocorrências
-
-/api/dashboard – Métricas para o dashboard
-
-/api/health – Verificação de integridade
-
-/api/docs – Documentação interativa
-
-Estrutura do projeto
-bash
-Copiar
-Editar
+### 📁 **Estrutura do Projeto**
+```
 sinistros-control/
 ├── backend/
 │   ├── app/
-│   │   ├── core/          # Configurações centrais
-│   │   ├── models/        # Modelos de banco
-│   │   ├── repositories/  # Camada de acesso a dados
-│   │   ├── routers/       # Rotas da API
-│   │   ├── schemas/       # Schemas Pydantic
-│   │   └── services/      # Lógica de negócio
+│   │   ├── core/
+│   │   ├── models/
+│   │   ├── repositories/
+│   │   ├── routers/
+│   │   ├── schemas/
+│   │   └── services/
 │   ├── requirements.txt
 │   └── venv/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # Componentes React
-│   │   ├── contexts/      # Provedores de contexto
-│   │   ├── pages/         # Páginas
-│   │   ├── services/      # Serviços de API
-│   │   └── utils/         # Utilidades
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
 │   └── package.json
+├── shell/
 └── README.md
-Padrões de desenvolvimento
-Padrões arquiteturais
-Princípios de Clean Architecture
+```
 
-Padrão Repository para acesso a dados
+## 🏷️ Versão
 
-Camada de serviços para regras de negócio
+**ULTRATHINK v2.1** - Sistema otimizado e limpo
+- ✅ Cores melhoradas no modo escuro
+- ✅ Projeto organizado sem arquivos desnecessários
+- ✅ Interface consistente com dropdowns
+- ✅ Performance otimizada
 
-Arquitetura frontend baseada em componentes
-
-Qualidade de código
-TypeScript para segurança de tipos
-
-ESLint e Prettier para padronização
-
-Design responsivo
-
-Boas práticas de acessibilidade
-
-Roadmap
-Fase 2 – Analytics avançado
- Integração de gráficos interativos
-
- Geração de relatórios PDF/Excel
-
- Filtro de datas inteligente
-
- Dashboards personalizáveis
-
-Fase 3 – Funcionalidades estendidas
- CRUD completo
-
- Upload de documentos
-
- Fluxos de aprovação
-
- Notificações em tempo real
-
-Fase 4 – Segurança & compliance
- Autenticação JWT
-
- Controle de acesso por perfil
-
- Trilhas de auditoria completas
-
- Sistema de backup automatizado
-
-Contribuição
-Este projeto segue padrões profissionais de desenvolvimento, com arquitetura limpa, componentes reutilizáveis e desempenho otimizado para ambos os temas.
-
-Licença
-Projeto desenvolvido para sistemas profissionais de gestão de sinistros de transporte.
+---
 
 <div align="center">
-Sistema Profissional de Gerenciamento de Sinistros de Transporte
 
-Construído com tecnologias modernas para máximo desempenho e excelente experiência de uso.
+**🚀 Sistema de Gestão de Sinistros ULTRATHINK**
+
+*Desenvolvido com ❤️ para gestão profissional de sinistros*
 
 </div>
