@@ -289,7 +289,7 @@ class SinistrosAPI {
 
   // ===== MÉTODOS PARA API DE AUTOMAÇÃO (Tabela Sinistros) =====
   
-  // Obter sinistro da tabela de automação por ID
+  // Obter sinistro da tabela de automação
   static async obterSinistroAutomacao(sinistroId) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/${sinistroId}`);
@@ -302,23 +302,6 @@ class SinistrosAPI {
       return result;
     } catch (error) {
       console.error('Erro ao obter sinistro da automação:', error);
-      throw error;
-    }
-  }
-
-  // Obter sinistro da tabela de automação por nota fiscal
-  static async obterSinistroAutomacaoPorNota(notaFiscal) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/nota/${notaFiscal}`);
-      
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Erro ao obter sinistro da automação por nota:', error);
       throw error;
     }
   }

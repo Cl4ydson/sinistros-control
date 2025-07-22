@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
-from .routers import auth, sinistros, automacao, debug
+from .routers import auth, sinistros
 
 # REMOVIDO: Base.metadata.create_all(bind=engine) 
 # As tabelas já existem nos bancos de dados
@@ -24,8 +24,6 @@ app.add_middleware(
 # plugando as rotas
 app.include_router(auth.router)
 app.include_router(sinistros.router)
-app.include_router(automacao.router)
-app.include_router(debug.router)
 
 @app.get("/")
 def root():

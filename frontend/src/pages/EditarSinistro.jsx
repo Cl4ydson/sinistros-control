@@ -271,10 +271,7 @@ const EditarSinistro = () => {
           dataAberturaSeguradora: dadosAPI.data_abertura_seguradora || '',
           programacaoIndenizacaoSeguradora: dadosAPI.programacao_indenizacao_seguradora || '',
           
-          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || '',
-          
-          // Carregar programação de pagamento se existir
-          programacaoPagamento: dadosAPI.programacao_pagamento || [{ data: '', valor: '', doctoESL: '' }]
+          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || ''
         });
       } else {
         // Se automação falhou E consulta também falhou, gerar nota automática
@@ -348,10 +345,7 @@ const EditarSinistro = () => {
         status_seguradora: sinistro.statusSeguradora,
         nome_seguradora: sinistro.seguradora,
         data_abertura_seguradora: sinistro.dataAberturaSeguradora,
-        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora,
-        
-        // Programação de pagamento
-        programacao_pagamento: sinistro.programacaoPagamento
+        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora
       };
 
       // Check if demo mode is active
