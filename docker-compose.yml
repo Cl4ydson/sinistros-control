@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: sinistros-backend
+    ports:
+      - "8001:8001"
+    environment:
+      # Banco de Dados - Configure com suas credenciais
+      - DB_SERVER=${DB_SERVER:-SRVTOTVS02}
+      - DB_DATABASE=${DB_DATABASE:-AUTOMACAO_BRSAMOR}
+      - DB_USERNAME=${DB_USERNAME:-adm}
+      - DB_PASSWORD=${DB_PASSWORD}
+      
+      # Segurança
+      - SECRET_KEY=${SECRET_KEY:-super-secret-key-change-in-production}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      
+      # Ambiente
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - sinistros-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend React
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sinistros-frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8001
+      - VITE_APP_TITLE=Sistema de Sinistros BRSAMOR
+      - VITE_ENVIRONMENT=production
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sinistros-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  sinistros-network:
+    driver: bridge
+
+volumes:
+  backend-logs:
+    driver: local 

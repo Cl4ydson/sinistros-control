@@ -1,0 +1,17 @@
+# Dependências para Vercel Serverless
+fastapi==0.111.0
+pydantic==2.7.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+uvicorn==0.29.0
+python-dotenv==1.0.1
+
+# Para Vercel, usar um ORM que funciona com serverless
+# Substitui PyODBC por uma solução compatível
+sqlalchemy==2.0.30
+# pymssql==2.3.0  # Alternativa ao PyODBC para SQL Server em serverless
+
+# HTTP client para APIs externas se necessário  
+httpx==0.28.1
+requests==2.31.0 

@@ -1,22 +1,56 @@
 {
   "version": 2,
   "name": "sinistros-control",
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "env": {
-    "VITE_DEMO_MODE": "true"
-  },
-  "routes": [
+  "builds": [
     {
-      "handle": "filesystem"
+      "src": "backend/app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "runtime": "python3.12"
+      }
     },
     {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
       "src": "/api/(.*)",
-      "status": 404
+      "dest": "/backend/app/main.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/frontend/$1"
     }
-  ]
-}
+  ],
+  "env": {
+    "DB_SERVER": "@db_server",
+    "DB_DATABASE": "@db_database", 
+    "DB_USERNAME": "@db_username",
+    "DB_PASSWORD": "@db_password",
+    "SECRET_KEY": "@secret_key",
+    "ALGORITHM": "HS256",
+    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+    "ENVIRONMENT": "production",
+    "DEBUG": "false"
+  },
+  "build": {
+    "env": {
+      "VITE_API_BASE_URL": "https://your-vercel-app.vercel.app",
+      "VITE_APP_TITLE": "Sistema de Sinistros BRSAMOR",
+      "VITE_ENVIRONMENT": "production"
+    }
+  },
+  "functions": {
+    "backend/app/main.py": {
+      "maxDuration": 30
+    }
+  },
+  "regions": ["iad1"],
+  "framework": null
+} 

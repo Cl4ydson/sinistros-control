@@ -315,29 +315,46 @@ VITE_ENVIRONMENT=development
 
 ## 🚀 Deploy
 
-### **Produção**
+Oferecemos **duas opções de deploy** para diferentes necessidades:
+
+### **🐋 Opção 1: Docker (Recomendado para Produção)**
+- ✅ **Controle total** e ambiente isolado
+- ✅ **PyODBC nativo** - funciona com SQL Server
+- ✅ **Performance dedicada** sem limitações
+- ✅ **Ideal para**: Ambiente empresarial
+
 ```bash
-# Backend
-cd backend
-pip install gunicorn
-gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+# Deploy automático
+./deploy-docker.sh        # Linux/Mac
+deploy-docker.bat         # Windows
 
-# Frontend
-cd frontend
-npm run build
-# Servir pasta dist/ com nginx ou similar
+# Acessos
+Frontend: http://localhost
+Backend:  http://localhost:8001
 ```
 
-### **Docker (Opcional)**
-```dockerfile
-# Dockerfile exemplo para backend
-FROM python:3.12-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+### **🔺 Opção 2: Vercel (Ideal para Startups)**
+- ✅ **Gratuito** até 100GB de banda
+- ✅ **Serverless** com escala automática  
+- ✅ **Deploy automático** do Git
+- ✅ **Ideal para**: Projetos pequenos/médios
+
+```bash
+# Instalar Vercel CLI
+npm install -g vercel
+
+# Deploy
+./deploy-vercel.sh
+# ou
+vercel --prod
 ```
+
+### **📚 Documentação Completa**
+Veja [DEPLOY.md](DEPLOY.md) para guia detalhado com:
+- 🔧 Configuração passo a passo
+- ⚖️ Comparação das opções
+- 🔍 Troubleshooting completo
+- 💡 Recomendações por cenário
 
 ## 🔍 Solução de Problemas
 

@@ -1,17 +1,31 @@
 {
-  "name": "sinistros-control-system",
+  "name": "sinistros-control",
   "version": "1.0.0",
-  "description": "Transportation Incident Management System",
+  "description": "Sistema de Controle de Sinistros BRSAMOR",
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
     "dev": "cd frontend && npm run dev",
-    "preview": "cd frontend && npm run preview",
-    "start": "cd frontend && npm run preview"
+    "dev:backend": "cd backend && python run.py",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "vercel:deploy": "vercel --prod",
+    "vercel:dev": "vercel dev"
   },
+  "keywords": [
+    "sinistros",
+    "transporte",
+    "brsamor",
+    "fastapi",
+    "react"
+  ],
+  "author": "BRSAMOR",
+  "license": "MIT",
   "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=18.0.0"
   },
-  "devDependencies": {},
-  "dependencies": {}
-}
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+} 
