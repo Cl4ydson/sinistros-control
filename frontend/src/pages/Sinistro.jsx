@@ -8,8 +8,6 @@ import {
   AlertCircle, CheckCircle, Calendar, Filter, RefreshCw, Search,
   Eye, Truck, Edit, Save, X
 } from 'lucide-react';
-import { API_BASE_URL, shouldUseDemoMode } from '../config/environment';
-import { mockSinistros, simulateApiDelay } from '../services/mockData';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -208,10 +206,9 @@ const SinistrosPage = () => {
       console.log('🔄 Iniciando carregamento dos sinistros...');
       console.log('📊 Usando mock:', useMock);
       
-      // Check if demo mode is active or use mock flag
-      if (useMock || shouldUseDemoMode()) {
-        console.log('🎭 Demo mode: Using simulated data');
-        await simulateApiDelay();
+      if (useMock) {
+        // Simula delay da API para teste
+        await new Promise(resolve => setTimeout(resolve, 1000));
         console.log('✅ Dados mock carregados:', mockSinistros.length, 'sinistros');
         setSinistros(mockSinistros);
         return;
@@ -222,7 +219,7 @@ const SinistrosPage = () => {
         Object.entries(filtros).filter(([, v]) => v)
       );
       const qs = new URLSearchParams(params).toString();
-      const url = `${API_BASE_URL}/sinistros/sem-auth${qs ? '?' + qs : ''}`;
+      const url = `http://127.0.0.1:8001/sinistros/sem-auth${qs ? '?' + qs : ''}`;
       
       console.log('🌐 Fazendo requisição para:', url);
       console.log('📋 Filtros aplicados:', params);

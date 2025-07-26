@@ -26,7 +26,6 @@ import UltraProfessionalLayout from '../components/Layout/UltraProfessionalLayou
 import { useTheme } from '../contexts/ThemeContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import SinistrosAPI from '../services/api';
-import { API_BASE_URL, shouldUseDemoMode } from '../config/environment';
 
 const EditarSinistro = () => {
   const { isDark } = useTheme();
@@ -34,11 +33,10 @@ const EditarSinistro = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(false);
-  const [isNotaReadOnly, setIsNotaReadOnly] = useState(false);
   const [sinistro, setSinistro] = useState({
     // Dados básicos
     numero: 'SIN-2024-0001',
-    nota: 'CARREGANDO...',
+    nota: '',
     remetente: '',
     
     // Dados do sinistro
@@ -125,114 +123,36 @@ const EditarSinistro = () => {
     'Manutenção'
   ];
 
-  // Função para gerar número de nota automático
-  const generateNotaNumber = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hour = String(now.getHours()).padStart(2, '0');
-    const minute = String(now.getMinutes()).padStart(2, '0');
-    const second = String(now.getSeconds()).padStart(2, '0');
-    
-    return `NF${year}${month}${day}${hour}${minute}${second}`;
-  };
-
   useEffect(() => {
-    console.log('🔢 EditarSinistro useEffect - ID:', id);
     if (id) {
       loadSinistro(id);
-    } else {
-      // Para novos sinistros, gerar nota automaticamente
-      const newNota = generateNotaNumber();
-      console.log('🔢 Gerando nota automática para novo sinistro:', newNota);
-      setSinistro(prev => ({
-        ...prev,
-        nota: newNota
-      }));
     }
   }, [id]);
-
-  // Garantir que sempre tenha uma nota se o campo estiver vazio
-  useEffect(() => {
-    if (sinistro.nota === '' || sinistro.nota === 'Ex: 123456' || sinistro.nota === 'CARREGANDO...') {
-      // Só gerar se não está carregando um sinistro específico
-      if (!loading) {
-        const newNota = generateNotaNumber();
-        console.log('🔢 Campo nota vazio/carregando, gerando automaticamente:', newNota);
-        setSinistro(prev => ({
-          ...prev,
-          nota: newNota
-        }));
-      }
-    }
-  }, [sinistro.nota, loading]);
 
   const loadSinistro = async (sinistroId) => {
     setLoading(true);
     try {
-      // FORÇAR USO DA API DE CONSULTA DIRETAMENTE - BYPASS AUTOMAÇÃO
-      console.log('🔢 FORCED: Usando API de consulta diretamente para ID:', sinistroId);
-      
-      const result = await SinistrosAPI.obterSinistro(sinistroId);
-      if (result.success && result.data) {
-        const dadosAPI = result.data;
-        const notaFiscal = dadosAPI.nota_fiscal || dadosAPI.numero_documento;
-        
-        console.log('🔢 FORCED: Nota fiscal da API de consulta:', notaFiscal);
-        
-        if (notaFiscal) {
-          console.log('🔢 FORCED: Nota encontrada, marcando como read-only');
-          setIsNotaReadOnly(true);
-        }
-        
-        setSinistro({
-          ...sinistro,
-          numero: dadosAPI.id || sinistroId,
-          nota: notaFiscal || generateNotaNumber(),
-          status: 'Carregado da consulta',
-          valorSinistro: dadosAPI.valor_sinistro || 0,
-          observacoes: dadosAPI.observacoes || ''
-        });
-        
-        return; // Sair da função aqui
-      }
-      
-      // SE NÃO FUNCIONOU, TENTAR AUTOMAÇÃO COMO FALLBACK
-      let automacaoResult;
+      // Primeiro tentar carregar da API de automação
+      let result;
       try {
         // Tentar buscar por ID primeiro
-        automacaoResult = await SinistrosAPI.obterSinistroAutomacao(sinistroId);
+        result = await SinistrosAPI.obterSinistroAutomacao(sinistroId);
       } catch (error) {
         // Se der 404, tentar buscar pela nota fiscal na API de automação
         try {
-          automacaoResult = await SinistrosAPI.obterSinistroAutomacaoPorNota(sinistroId);
+          result = await SinistrosAPI.obterSinistroAutomacaoPorNota(sinistroId);
         } catch {
-          automacaoResult = { success: false };
+          result = { success: false };
         }
       }
       
-      if (automacaoResult.success && automacaoResult.data) {
+      if (result.success && result.data) {
         // Mapear dados da API de automação para o formato do frontend
-        const dadosAPI = automacaoResult.data;
-        
-        // Se o registro tem nota fiscal, marcar como read-only
-        const notaFromDB = dadosAPI.nota_fiscal || '';
-        console.log('🔢 Carregando sinistro da automação - Nota do DB:', notaFromDB);
-        if (notaFromDB) {
-          console.log('🔢 Nota encontrada no DB, marcando como read-only');
-          setIsNotaReadOnly(true);
-        } else {
-          console.log('🔢 Nota não encontrada no DB, gerando automaticamente');
-        }
-        
-        const finalNota = notaFromDB || generateNotaNumber();
-        console.log('🔢 Nota final a ser usada:', finalNota);
-        
+        const dadosAPI = result.data;
         setSinistro({
           ...sinistro,
           numero: dadosAPI.id || sinistroId,
-          nota: finalNota,
+          nota: dadosAPI.nota_fiscal || '',
           status: dadosAPI.status_geral || 'Não iniciado',
           
           // Dados de pagamento
@@ -271,30 +191,33 @@ const EditarSinistro = () => {
           dataAberturaSeguradora: dadosAPI.data_abertura_seguradora || '',
           programacaoIndenizacaoSeguradora: dadosAPI.programacao_indenizacao_seguradora || '',
           
-          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || ''
+          observacoes: dadosAPI.observacoes_pagamento || dadosAPI.observacoes_internas || '',
+          
+          // Carregar programação de pagamento se existir
+          programacaoPagamento: dadosAPI.programacao_pagamento || [{ data: '', valor: '', doctoESL: '' }]
         });
-      } else {
-        // Se automação falhou E consulta também falhou, gerar nota automática
-        console.log('🔢 FORCED: Nenhuma API retornou dados, gerando nota automática');
-        const autoNota = generateNotaNumber();
-        setSinistro(prev => ({
-          ...prev,
-          nota: autoNota,
-          numero: sinistroId,
-          status: 'Novo sinistro'
-        }));
       }
     } catch (error) {
-      console.error('🔢 FORCED: Erro geral no carregamento:', error);
-      // Mesmo com erro, gerar uma nota automática
-      const autoNota = generateNotaNumber();
-      console.log('🔢 FORCED: Erro no carregamento, gerando nota automática:', autoNota);
-      setSinistro(prev => ({
-        ...prev,
-        nota: autoNota,
-        numero: sinistroId,
-        status: 'Erro no carregamento'
-      }));
+      console.error('Erro ao carregar sinistro da automação:', error);
+      
+      // Se falhar na automação, tentar carregar da API de consulta como fallback
+      try {
+        const result = await SinistrosAPI.obterSinistro(sinistroId);
+        if (result.success && result.data) {
+          const dadosAPI = result.data;
+          setSinistro({
+            ...sinistro,
+            numero: dadosAPI.numero || sinistroId,
+            nota: dadosAPI.nota_fiscal || dadosAPI.numero_documento || '',
+            status: 'Não iniciado', // Novo sinistro que será criado na automação
+            valorSinistro: dadosAPI.valor_sinistro || 0,
+            observacoes: dadosAPI.observacoes || ''
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Erro ao carregar de ambas as APIs:', fallbackError);
+        alert(`❌ Erro ao carregar sinistro: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -345,20 +268,15 @@ const EditarSinistro = () => {
         status_seguradora: sinistro.statusSeguradora,
         nome_seguradora: sinistro.seguradora,
         data_abertura_seguradora: sinistro.dataAberturaSeguradora,
-        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora
+        programacao_indenizacao_seguradora: sinistro.programacaoIndenizacaoSeguradora,
+        
+        // Programação de pagamento
+        programacao_pagamento: sinistro.programacaoPagamento
       };
 
-      // Check if demo mode is active
-      if (shouldUseDemoMode()) {
-        console.log('🎭 Demo mode: Simulating save operation');
-        alert('✅ Dados salvos com sucesso! (Modo demonstração)');
-        navigate(-1);
-        return;
-      }
-
       // Chamar API de automação para salvar na tabela Sinistros (criar ou atualizar)
-      const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/criar-ou-atualizar/${id}`, {
-        method: 'POST',
+      const response = await fetch(`http://127.0.0.1:8001/api/automacao/sinistros/${id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -493,57 +411,22 @@ const EditarSinistro = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                  Número da Nota {isNotaReadOnly ? '(Preenchido Automaticamente)' : '(Gerado Automaticamente)'}
+                  Número da Nota
                 </label>
-                {!isNotaReadOnly && sinistro.nota && sinistro.nota !== 'CARREGANDO...' && (
-                  <div className={`text-xs mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                    ✨ Número gerado automaticamente • Formato: NF + Data/Hora
-                  </div>
-                )}
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={sinistro.nota}
-                    onChange={(e) => !isNotaReadOnly && updateSinistro('nota', e.target.value)}
-                    readOnly={isNotaReadOnly}
-                    className={`
-                      w-full p-3 rounded-xl border transition-colors
-                      ${isNotaReadOnly 
-                        ? isDark 
-                          ? 'bg-slate-800/40 border-slate-600 text-slate-300 cursor-not-allowed'
-                          : 'bg-gray-100/60 border-gray-200 text-gray-600 cursor-not-allowed'
-                        : isDark
-                          ? 'bg-slate-900/60 border-slate-700 text-white placeholder-slate-400' 
-                          : 'bg-gray-50/60 border-gray-300 text-gray-900 placeholder-gray-500'
-                      }
-                      ${!isNotaReadOnly && 'focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'}
-                    `}
-                    placeholder={isNotaReadOnly ? "Preenchido automaticamente" : "Número será gerado automaticamente"}
-                  />
-                  {isNotaReadOnly && (
-                    <div className={`absolute right-3 top-3 ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
-                      <CheckCircle size={20} />
-                    </div>
-                  )}
-                  {!isNotaReadOnly && !sinistro.nota && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newNota = generateNotaNumber();
-                        console.log('🔢 Gerando nova nota manualmente:', newNota);
-                        updateSinistro('nota', newNota);
-                      }}
-                      className={`absolute right-3 top-3 p-1 rounded transition-colors ${
-                        isDark 
-                          ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-800' 
-                          : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'
-                      }`}
-                      title="Gerar número automaticamente"
-                    >
-                      <Hash size={16} />
-                    </button>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  value={sinistro.nota}
+                  onChange={(e) => updateSinistro('nota', e.target.value)}
+                  className={`
+                    w-full p-3 rounded-xl border transition-colors
+                    ${isDark
+                      ? 'bg-slate-900/60 border-slate-700 text-white placeholder-slate-400' 
+                      : 'bg-gray-50/60 border-gray-300 text-gray-900 placeholder-gray-500'
+                    }
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                  `}
+                  placeholder="Ex: 123456"
+                />
               </div>
 
               <div>

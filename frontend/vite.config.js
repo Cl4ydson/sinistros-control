@@ -8,18 +8,5 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    assetsInlineLimit: 0, // Don't inline assets, keep them as files
-    rollupOptions: {
-      output: {
-        assetFileNames: 'assets/[name].[ext]'
-      }
-    }
   },
-  define: {
-    // Make sure environment variables are available in production
-    'process.env': {}
-  },
-  // Ensure assets are properly handled
-  publicDir: 'public',
-  assetsInclude: ['**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.svg', '**/*.gif']
 });

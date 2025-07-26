@@ -26,6 +26,41 @@ if %errorlevel% neq 0 (
 echo ✅ Python e Node.js detectados
 echo.
 
+REM =================== ENCERRAR PROCESSOS EXISTENTES ===================
+echo 🔄 Verificando e encerrando processos existentes...
+
+REM Função para encerrar processo por porta
+call :KillProcessByPort 8001 "Backend API"
+call :KillProcessByPort 8003 "Backend API (alternativo)"
+call :KillProcessByPort 5173 "Frontend React"
+
+REM Encerrar processos específicos por nome de janela
+echo 🔄 Encerrando processos por nome de janela...
+for /f "tokens=2" %%a in ('tasklist /FI "WINDOWTITLE eq BACKEND*" /FO CSV ^| findstr /V "INFO:"') do (
+    if not "%%a"=="PID" (
+        echo 🔄 Encerrando processo BACKEND - PID %%a
+        taskkill /F /PID %%a >nul 2>&1
+    )
+)
+
+for /f "tokens=2" %%a in ('tasklist /FI "WINDOWTITLE eq FRONTEND*" /FO CSV ^| findstr /V "INFO:"') do (
+    if not "%%a"=="PID" (
+        echo 🔄 Encerrando processo FRONTEND - PID %%a
+        taskkill /F /PID %%a >nul 2>&1
+    )
+)
+
+REM Encerrar processos uvicorn e npm dev específicos
+echo 🔄 Encerrando processos uvicorn e npm...
+wmic process where "CommandLine like '%%uvicorn%%app.main:app%%'" delete >nul 2>&1
+wmic process where "CommandLine like '%%npm run dev%%'" delete >nul 2>&1
+
+REM Aguardar um momento para os processos serem encerrados
+timeout /t 3 /nobreak >nul
+echo ✅ Processos existentes encerrados
+
+echo.
+
 REM =================== CONFIGURAR BACKEND ===================
 echo 📦 Configurando Backend...
 cd backend
@@ -62,15 +97,6 @@ echo 🧪 Verificando aplicação FastAPI...
 python -c "from app.main import app; print('✅ App verificada')"
 if %errorlevel% neq 0 (
     echo ❌ Erro na aplicação FastAPI! Verifique os logs.
-    pause
-    exit /b 1
-)
-
-REM Verificar se a porta 8001 está livre
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8001 ^| findstr LISTENING') do set PID_BACKEND=%%a
-if defined PID_BACKEND (
-    echo ❌ Porta 8001 já está em uso pelo processo PID %PID_BACKEND%.
-    echo    Encerre o processo ou libere a porta antes de iniciar o sistema.
     pause
     exit /b 1
 )
@@ -164,4 +190,20 @@ start http://localhost:5173
 echo ⌨️  Pressione qualquer tecla para continuar monitorando...
 pause >nul
 
-cd .. 
+cd ..
+goto :EOF
+
+REM =================== FUNÇÕES AUXILIARES ===================
+:KillProcessByPort
+set PORT=%1
+set DESCRIPTION=%2
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%PORT% ^| findstr LISTENING') do (
+    echo 🔄 Encerrando %DESCRIPTION% na porta %PORT% - PID %%a
+    taskkill /F /PID %%a >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo ✅ Processo PID %%a encerrado com sucesso
+    ) else (
+        echo ⚠️  Não foi possível encerrar processo PID %%a
+    )
+)
+goto :EOF 

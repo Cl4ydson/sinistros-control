@@ -1,302 +1,272 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, or_, func
-from typing import Optional, List, Dict, Tuple
-from datetime import datetime, date
-import logging
+from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional, Dict, Any, List
+from datetime import datetime
 
 from ..models.sinistro_automacao import SinistroAutomacao
-from ..schemas.sinistro_automacao import (
-    SinistroAutomacaoCreate, 
-    SinistroAutomacaoUpdate,
-    StatusPagamento,
-    StatusIndenizacao,
-    StatusJuridico,
-    StatusSeguradora,
-    StatusGeral
-)
-from ..database import get_db
-
-logger = logging.getLogger(__name__)
+from ..models.programacao_pagamento import ProgramacaoPagamento
+from ..models.base import Base
+from ..database import SessionLocal_Principal, engine_principal
+from .programacao_pagamento_repository import ProgramacaoPagamentoRepository
 
 class SinistroAutomacaoRepository:
-    """
-    Repository para operações na tabela Sinistros do banco AUTOMACAO_BRSAMOR
-    Suporte completo a UPSERT para atualizações constantes
-    """
+    """Repository para gerenciar sinistros na tabela de automação (AUTOMACAO_BRSAMOR)"""
     
-    def __init__(self, db: Session):
-        self.db = db
-    
-    def buscar_por_nota_conhecimento(
-        self, 
-        nota_fiscal: str, 
-        nr_conhecimento: Optional[str] = None
-    ) -> Optional[SinistroAutomacao]:
-        """
-        Busca sinistro por nota fiscal e conhecimento (identificação única)
-        """
+    def __init__(self):
+        self.db = SessionLocal_Principal()
+        # Criar tabelas se não existirem
         try:
-            query = self.db.query(SinistroAutomacao).filter(
-                SinistroAutomacao.nota_fiscal == nota_fiscal
-            )
-            
-            if nr_conhecimento:
-                query = query.filter(SinistroAutomacao.nr_conhecimento == nr_conhecimento)
-            else:
-                query = query.filter(SinistroAutomacao.nr_conhecimento.is_(None))
-                
-            return query.first()
+            Base.metadata.create_all(bind=engine_principal)
         except Exception as e:
-            logger.error(f"Erro ao buscar sinistro por nota/conhecimento: {e}")
-            return None
+            print(f"Erro ao criar tabelas: {e}")
+        
+        # Repository para programação de pagamentos
+        self.pagamento_repo = ProgramacaoPagamentoRepository()
     
-    def criar_ou_atualizar(
-        self, 
-        dados: SinistroAutomacaoCreate, 
-        usuario: str
-    ) -> Tuple[SinistroAutomacao, bool]:
-        """
-        UPSERT: Cria novo sinistro ou atualiza existente
-        Retorna: (sinistro, foi_criado)
-        """
+    def __del__(self):
+        if hasattr(self, 'db'):
+            self.db.close()
+    
+    def criar_sinistro(self, dados: Dict[str, Any]) -> Dict[str, Any]:
+        """Cria um novo sinistro na tabela de automação"""
         try:
-            # Verificar se já existe
-            sinistro_existente = self.buscar_por_nota_conhecimento(
-                dados.nota_fiscal, 
-                dados.nr_conhecimento
-            )
+            # Criar objeto SinistroAutomacao
+            sinistro = SinistroAutomacao(**dados)
             
-            if sinistro_existente:
-                # ATUALIZAR
-                logger.info(f"Atualizando sinistro existente: {dados.nota_fiscal}")
-                return self._atualizar_sinistro(sinistro_existente, dados, usuario), False
-            else:
-                # CRIAR NOVO
-                logger.info(f"Criando novo sinistro: {dados.nota_fiscal}")
-                return self._criar_sinistro(dados, usuario), True
-                
-        except Exception as e:
-            logger.error(f"Erro no UPSERT do sinistro: {e}")
+            self.db.add(sinistro)
+            self.db.commit()
+            self.db.refresh(sinistro)
+            
+            return {
+                "success": True,
+                "message": "Sinistro criado com sucesso",
+                "data": sinistro.to_dict()
+            }
+        except SQLAlchemyError as e:
             self.db.rollback()
-            raise
+            return {
+                "success": False,
+                "message": f"Erro ao criar sinistro: {str(e)}",
+                "data": None
+            }
+        except Exception as e:
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": f"Erro inesperado: {str(e)}",
+                "data": None
+            }
     
-    def _criar_sinistro(self, dados: SinistroAutomacaoCreate, usuario: str) -> SinistroAutomacao:
-        """Cria novo sinistro"""
-        sinistro = SinistroAutomacao(
-            **dados.dict(exclude={'criado_por'}),
-            criado_por=usuario,
-            atualizado_por=usuario,
-            status_geral=StatusGeral.NAO_INICIADO.value
-        )
-        
-        self.db.add(sinistro)
-        self.db.commit()
-        self.db.refresh(sinistro)
-        return sinistro
-    
-    def _atualizar_sinistro(
-        self, 
-        sinistro: SinistroAutomacao, 
-        dados: SinistroAutomacaoCreate, 
-        usuario: str
-    ) -> SinistroAutomacao:
-        """Atualiza sinistro existente com novos dados básicos"""
-        
-        # Atualizar apenas campos básicos vindos do outro banco
-        campos_basicos = [
-            'remetente', 'destinatario', 'cliente', 'modal',
-            'dt_coleta', 'dt_prazo_entrega', 'dt_entrega_real', 
-            'dt_agendamento', 'dt_ocorrencia', 'dt_cadastro',
-            'hr_cadastro', 'dt_alteracao', 'hr_alteracao',
-            'tipo_ocorrencia', 'descricao_ocorrencia', 
-            'ultima_ocorrencia', 'referencia', 'valor_mercadoria'
-        ]
-        
-        for campo in campos_basicos:
-            valor = getattr(dados, campo, None)
-            if valor is not None:
-                setattr(sinistro, campo, valor)
-        
-        sinistro.atualizado_por = usuario
-        sinistro.atualizado_em = datetime.utcnow()
-        
-        self.db.commit()
-        self.db.refresh(sinistro)
-        return sinistro
-    
-    def atualizar_campos_especificos(
-        self, 
-        sinistro_id: int, 
-        dados: SinistroAutomacaoUpdate, 
-        usuario: str
-    ) -> Optional[SinistroAutomacao]:
-        """
-        Atualiza campos específicos do sinistro (preenchidos pelo usuário)
-        """
+    def obter_sinistro_por_id(self, sinistro_id: int) -> Dict[str, Any]:
+        """Obtém um sinistro pelo ID"""
         try:
             sinistro = self.db.query(SinistroAutomacao).filter(
                 SinistroAutomacao.id == sinistro_id
             ).first()
             
             if not sinistro:
-                return None
+                return {
+                    "success": False,
+                    "message": "Sinistro não encontrado",
+                    "data": None
+                }
             
-            # Atualizar apenas campos não-nulos
-            campos_atualizacao = dados.dict(exclude_unset=True, exclude={'atualizado_por'})
+            return {
+                "success": True,
+                "message": "Sinistro encontrado",
+                "data": sinistro.to_dict()
+            }
+        except SQLAlchemyError as e:
+            return {
+                "success": False,
+                "message": f"Erro ao buscar sinistro: {str(e)}",
+                "data": None
+            }
+    
+    def obter_sinistro_por_nota(self, nota_fiscal: str) -> Dict[str, Any]:
+        """Obtém um sinistro pela nota fiscal"""
+        try:
+            sinistro = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.nota_fiscal == nota_fiscal
+            ).first()
             
-            for campo, valor in campos_atualizacao.items():
-                if hasattr(sinistro, campo):
-                    setattr(sinistro, campo, valor)
+            if not sinistro:
+                return {
+                    "success": False,
+                    "message": "Sinistro não encontrado para esta nota fiscal",
+                    "data": None
+                }
             
-            sinistro.atualizado_por = usuario
-            sinistro.atualizado_em = datetime.utcnow()
+            return {
+                "success": True,
+                "message": "Sinistro encontrado",
+                "data": sinistro.to_dict()
+            }
+        except SQLAlchemyError as e:
+            return {
+                "success": False,
+                "message": f"Erro ao buscar sinistro: {str(e)}",
+                "data": None
+            }
+    
+    def atualizar_sinistro(self, sinistro_id: int, dados: Dict[str, Any]) -> Dict[str, Any]:
+        """Atualiza um sinistro existente"""
+        try:
+            sinistro = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.id == sinistro_id
+            ).first()
             
-            # Atualizar status geral automaticamente
-            self._atualizar_status_geral(sinistro)
+            if not sinistro:
+                return {
+                    "success": False,
+                    "message": "Sinistro não encontrado",
+                    "data": None
+                }
+            
+            # Atualizar campos
+            for key, value in dados.items():
+                if hasattr(sinistro, key):
+                    setattr(sinistro, key, value)
+            
+            # Atualizar timestamp
+            sinistro.data_atualizacao = datetime.utcnow()
             
             self.db.commit()
             self.db.refresh(sinistro)
-            return sinistro
-            
-        except Exception as e:
-            logger.error(f"Erro ao atualizar campos específicos: {e}")
-            self.db.rollback()
-            raise
-    
-    def _atualizar_status_geral(self, sinistro: SinistroAutomacao):
-        """Atualiza status geral baseado nos outros status"""
-        
-        # Se tem algum acionamento ativo
-        tem_acionamento = (
-            sinistro.acionamento_juridico or 
-            sinistro.acionamento_seguradora or
-            sinistro.status_pagamento not in [StatusPagamento.AGUARDANDO_ND.value] or
-            sinistro.status_indenizacao not in [StatusIndenizacao.PENDENTE.value]
-        )
-        
-        # Se tudo está finalizado
-        tudo_finalizado = (
-            sinistro.status_pagamento == StatusPagamento.PAGO.value and
-            sinistro.status_indenizacao == StatusIndenizacao.PAGO.value and
-            (not sinistro.acionamento_juridico or sinistro.status_juridico == StatusJuridico.INDENIZADO.value) and
-            (not sinistro.acionamento_seguradora or sinistro.status_seguradora == StatusSeguradora.INDENIZADO.value)
-        )
-        
-        if tudo_finalizado:
-            sinistro.status_geral = StatusGeral.CONCLUIDO.value
-        elif tem_acionamento:
-            sinistro.status_geral = StatusGeral.EM_ANDAMENTO.value
-        else:
-            sinistro.status_geral = StatusGeral.NAO_INICIADO.value
-    
-    def buscar_por_id(self, sinistro_id: int) -> Optional[SinistroAutomacao]:
-        """Busca sinistro por ID"""
-        return self.db.query(SinistroAutomacao).filter(
-            SinistroAutomacao.id == sinistro_id
-        ).first()
-    
-    def listar_sinistros(
-        self,
-        skip: int = 0,
-        limit: int = 100,
-        filtros: Optional[Dict] = None
-    ) -> List[SinistroAutomacao]:
-        """Lista sinistros com filtros opcionais"""
-        
-        query = self.db.query(SinistroAutomacao)
-        
-        if filtros:
-            if filtros.get('status_geral'):
-                query = query.filter(SinistroAutomacao.status_geral == filtros['status_geral'])
-            
-            if filtros.get('setor_responsavel'):
-                query = query.filter(SinistroAutomacao.setor_responsavel == filtros['setor_responsavel'])
-            
-            if filtros.get('dt_ocorrencia_inicio'):
-                query = query.filter(SinistroAutomacao.dt_ocorrencia >= filtros['dt_ocorrencia_inicio'])
-            
-            if filtros.get('dt_ocorrencia_fim'):
-                query = query.filter(SinistroAutomacao.dt_ocorrencia <= filtros['dt_ocorrencia_fim'])
-            
-            if filtros.get('cliente'):
-                query = query.filter(SinistroAutomacao.cliente.ilike(f"%{filtros['cliente']}%"))
-        
-        return query.offset(skip).limit(limit).all()
-    
-    def contar_sinistros(self, filtros: Optional[Dict] = None) -> int:
-        """Conta total de sinistros com filtros"""
-        query = self.db.query(func.count(SinistroAutomacao.id))
-        
-        if filtros:
-            if filtros.get('status_geral'):
-                query = query.filter(SinistroAutomacao.status_geral == filtros['status_geral'])
-            
-            if filtros.get('setor_responsavel'):
-                query = query.filter(SinistroAutomacao.setor_responsavel == filtros['setor_responsavel'])
-        
-        return query.scalar()
-    
-    def obter_estatisticas(self) -> Dict:
-        """Obtém estatísticas consolidadas dos sinistros"""
-        try:
-            total = self.db.query(func.count(SinistroAutomacao.id)).scalar()
-            
-            # Por status
-            nao_iniciados = self.db.query(func.count(SinistroAutomacao.id)).filter(
-                SinistroAutomacao.status_geral == StatusGeral.NAO_INICIADO.value
-            ).scalar()
-            
-            em_andamento = self.db.query(func.count(SinistroAutomacao.id)).filter(
-                SinistroAutomacao.status_geral == StatusGeral.EM_ANDAMENTO.value
-            ).scalar()
-            
-            concluidos = self.db.query(func.count(SinistroAutomacao.id)).filter(
-                SinistroAutomacao.status_geral == StatusGeral.CONCLUIDO.value
-            ).scalar()
-            
-            # Valores
-            valores = self.db.query(
-                func.sum(SinistroAutomacao.valor_mercadoria),
-                func.sum(SinistroAutomacao.valor_sinistro_total),
-                func.sum(SinistroAutomacao.valor_indenizado_total)
-            ).first()
-            
-            # Acionamentos
-            juridicos = self.db.query(func.count(SinistroAutomacao.id)).filter(
-                SinistroAutomacao.acionamento_juridico == True
-            ).scalar()
-            
-            seguradoras = self.db.query(func.count(SinistroAutomacao.id)).filter(
-                SinistroAutomacao.acionamento_seguradora == True
-            ).scalar()
             
             return {
-                'total_sinistros': total or 0,
-                'nao_iniciados': nao_iniciados or 0,
-                'em_andamento': em_andamento or 0,
-                'concluidos': concluidos or 0,
-                'valor_total_mercadorias': float(valores[0] or 0),
-                'valor_total_sinistros': float(valores[1] or 0),
-                'valor_total_indenizacoes': float(valores[2] or 0),
-                'sinistros_juridicos': juridicos or 0,
-                'sinistros_seguradoras': seguradoras or 0
+                "success": True,
+                "message": "Sinistro atualizado com sucesso",
+                "data": sinistro.to_dict()
             }
-            
-        except Exception as e:
-            logger.error(f"Erro ao obter estatísticas: {e}")
-            return {}
-    
-    def deletar(self, sinistro_id: int) -> bool:
-        """Deleta sinistro (usar com cuidado)"""
-        try:
-            sinistro = self.buscar_por_id(sinistro_id)
-            if sinistro:
-                self.db.delete(sinistro)
-                self.db.commit()
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Erro ao deletar sinistro: {e}")
+        except SQLAlchemyError as e:
             self.db.rollback()
-            return False 
+            return {
+                "success": False,
+                "message": f"Erro ao atualizar sinistro: {str(e)}",
+                "data": None
+            }
+    
+    def criar_ou_atualizar_sinistro(self, identificador: str, dados: Dict[str, Any]) -> Dict[str, Any]:
+        """Cria ou atualiza um sinistro. Se existir (por nota fiscal), atualiza. Se não, cria."""
+        try:
+            # Extrair programação de pagamento dos dados se existir
+            programacao_pagamento = dados.pop('programacao_pagamento', [])
+            
+            # Primeiro tentar encontrar por nota fiscal
+            dados['nota_fiscal'] = identificador
+            
+            sinistro = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.nota_fiscal == identificador
+            ).first()
+            
+            if sinistro:
+                # Atualizar existente
+                for key, value in dados.items():
+                    if hasattr(sinistro, key):
+                        setattr(sinistro, key, value)
+                
+                sinistro.data_atualizacao = datetime.utcnow()
+                self.db.commit()
+                self.db.refresh(sinistro)
+                
+                # Salvar programação de pagamento
+                if programacao_pagamento:
+                    self.pagamento_repo.salvar_programacao_pagamentos(sinistro.id, programacao_pagamento)
+                
+                return {
+                    "success": True,
+                    "message": "Sinistro atualizado com sucesso",
+                    "data": sinistro.to_dict()
+                }
+            else:
+                # Criar novo
+                resultado = self.criar_sinistro(dados)
+                
+                # Se criou com sucesso e tem programação de pagamento, salvar
+                if resultado["success"] and programacao_pagamento:
+                    sinistro_id = resultado["data"]["id"]
+                    self.pagamento_repo.salvar_programacao_pagamentos(sinistro_id, programacao_pagamento)
+                    
+                    # Buscar novamente com os pagamentos
+                    sinistro_atualizado = self.obter_sinistro_por_id(sinistro_id)
+                    if sinistro_atualizado["success"]:
+                        resultado["data"] = sinistro_atualizado["data"]
+                
+                return resultado
+                
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": f"Erro ao criar ou atualizar sinistro: {str(e)}",
+                "data": None
+            }
+    
+    def listar_sinistros(self, filtros: Dict[str, Any] = None, skip: int = 0, limit: int = 100) -> Dict[str, Any]:
+        """Lista sinistros com filtros opcionais"""
+        try:
+            query = self.db.query(SinistroAutomacao)
+            
+            # Aplicar filtros se fornecidos
+            if filtros:
+                if 'status_geral' in filtros and filtros['status_geral']:
+                    query = query.filter(SinistroAutomacao.status_geral == filtros['status_geral'])
+                
+                if 'nota_fiscal' in filtros and filtros['nota_fiscal']:
+                    query = query.filter(SinistroAutomacao.nota_fiscal.like(f"%{filtros['nota_fiscal']}%"))
+                
+                if 'status_pagamento' in filtros and filtros['status_pagamento']:
+                    query = query.filter(SinistroAutomacao.status_pagamento == filtros['status_pagamento'])
+            
+            # Contagem total
+            total = query.count()
+            
+            # Paginação - SQL Server requer ORDER BY com OFFSET
+            sinistros = query.order_by(SinistroAutomacao.id).offset(skip).limit(limit).all()
+            
+            return {
+                "success": True,
+                "message": f"Encontrados {len(sinistros)} sinistros",
+                "data": [sinistro.to_dict() for sinistro in sinistros],
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            }
+        except SQLAlchemyError as e:
+            return {
+                "success": False,
+                "message": f"Erro ao listar sinistros: {str(e)}",
+                "data": [],
+                "total": 0
+            }
+    
+    def deletar_sinistro(self, sinistro_id: int) -> Dict[str, Any]:
+        """Deleta um sinistro"""
+        try:
+            sinistro = self.db.query(SinistroAutomacao).filter(
+                SinistroAutomacao.id == sinistro_id
+            ).first()
+            
+            if not sinistro:
+                return {
+                    "success": False,
+                    "message": "Sinistro não encontrado",
+                    "data": None
+                }
+            
+            self.db.delete(sinistro)
+            self.db.commit()
+            
+            return {
+                "success": True,
+                "message": "Sinistro deletado com sucesso",
+                "data": None
+            }
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": f"Erro ao deletar sinistro: {str(e)}",
+                "data": None
+            }

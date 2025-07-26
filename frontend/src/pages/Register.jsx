@@ -38,7 +38,7 @@ export default function Register() {
   return (
     <div 
       className="min-h-screen flex items-center justify-center bg-cover bg-center"
-      style={{ backgroundImage: "url('/login.png')" }}
+      style={{ backgroundImage: "url('/src/imagem/login.png')" }}
     >
       {/* Overlay escuro para melhorar legibilidade */}
       <div className="absolute inset-0 bg-black opacity-30"></div>

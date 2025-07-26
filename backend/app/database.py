@@ -13,7 +13,7 @@ database_principal = "AUTOMACAO_BRSAMOR"
 params_principal = urllib.parse.quote_plus(
     f"DRIVER={{SQL Server}};"
     f"SERVER={server_principal};DATABASE={database_principal};"
-    f"UID={user_principal};PWD={password_principal}"
+    f"UID={user_principal};PWD={password_principal};TrustServerCertificate=yes;"
 )
 
 SQLALCHEMY_DATABASE_URL_PRINCIPAL = f"mssql+pyodbc:///?odbc_connect={params_principal}"

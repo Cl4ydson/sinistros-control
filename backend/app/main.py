@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
-from .routers import auth, sinistros
+from .routers import auth, sinistros, sinistros_automacao_simple
 
 # REMOVIDO: Base.metadata.create_all(bind=engine) 
 # As tabelas já existem nos bancos de dados
@@ -15,7 +15,7 @@ app = FastAPI(
 # Configuração CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for deployment
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # URLs do frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +24,7 @@ app.add_middleware(
 # plugando as rotas
 app.include_router(auth.router)
 app.include_router(sinistros.router)
+app.include_router(sinistros_automacao_simple.router)
 
 @app.get("/")
 def root():

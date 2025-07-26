@@ -1,91 +1,9 @@
-import { 
-  mockSinistros, 
-  mockDashboardData, 
-  mockEstatisticas, 
-  mockRelatorioPrejuizo, 
-  simulateApiDelay 
-} from './mockData.js';
-
-import { API_BASE_URL, APP_CONFIG, shouldUseDemoMode } from '../config/environment.js';
-
-// Backend availability state
-let backendAvailable = null;
-
-const checkBackendConnection = async () => {
-  // Check if demo mode should be used
-  if (shouldUseDemoMode()) {
-    console.log('🎭 Demo mode: Using simulated data');
-    return false;
-  }
-  
-  // If no API_BASE_URL is configured, use demo mode
-  if (!API_BASE_URL || API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1')) {
-    console.log('🎭 No production API configured, using demo mode');
-    return false;
-  }
-  
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.demo.timeout);
-    
-    const response = await fetch(`${API_BASE_URL}/sinistros/test/connection`, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    const isAvailable = response.ok;
-    
-    if (isAvailable) {
-      console.log('✅ Backend connection successful');
-    } else {
-      console.warn('❌ Backend responded with error:', response.status);
-    }
-    
-    return isAvailable;
-  } catch (error) {
-    console.warn('❌ Backend not available, switching to demo mode:', error.message);
-    return false;
-  }
-};
-
-// Wrapper function to handle API calls with fallback
-const apiWithFallback = async (apiCall, fallbackData) => {
-  // Force demo mode check first
-  if (shouldUseDemoMode()) {
-    console.log('🎭 Using demo data - demo mode enabled');
-    await simulateApiDelay();
-    return { ...fallbackData, demo_mode: true };
-  }
-  
-  if (backendAvailable === null) {
-    backendAvailable = await checkBackendConnection();
-  }
-  
-  if (!backendAvailable) {
-    console.log('🎭 Using demo data - backend not available');
-    await simulateApiDelay();
-    return { ...fallbackData, demo_mode: true };
-  }
-  
-  try {
-    const result = await apiCall();
-    return { ...result, demo_mode: false };
-  } catch (error) {
-    console.warn('❌ API call failed, falling back to demo data:', error.message);
-    backendAvailable = false;
-    await simulateApiDelay();
-    return { ...fallbackData, demo_mode: true };
-  }
-};
+const API_BASE_URL = 'http://127.0.0.1:8001';
 
 class SinistrosAPI {
   // Buscar todos os sinistros da query real
   static async listarSinistros(filtros = {}) {
-    const apiCall = async () => {
+    try {
       const params = new URLSearchParams();
       
       if (filtros.dt_ini) params.append('dt_ini', filtros.dt_ini);
@@ -103,56 +21,25 @@ class SinistrosAPI {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      return await response.json();
-    };
-
-    const fallbackData = {
-      sinistros: mockSinistros,
-      total: mockSinistros.length,
-      page: filtros.page || 1,
-      limit: filtros.limit || 50,
-      demo_mode: true
-    };
-
-    return await apiWithFallback(apiCall, fallbackData);
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar sinistros:', error);
+      throw error;
+    }
   }
 
   // Buscar sinistro específico
   static async obterSinistro(sinistroId) {
     try {
-      // Primeiro tentar buscar por ID exato
-      let response = await fetch(`${API_BASE_URL}/sinistros/sem-auth?id=${sinistroId}`);
+      const response = await fetch(`${API_BASE_URL}/sinistros/${sinistroId}`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      let result = await response.json();
-      
-      // Se encontrou resultados, retornar o primeiro
-      if (result.sinistros && result.sinistros.length > 0) {
-        return {
-          success: true,
-          data: result.sinistros[0] // Pegar o primeiro resultado
-        };
-      }
-      
-      // Se não encontrou por ID, tentar buscar pela nota fiscal (caso o ID seja na verdade uma nota)
-      response = await fetch(`${API_BASE_URL}/sinistros/sem-auth?nota_fiscal=${sinistroId}`);
-      result = await response.json();
-      
-      if (result.sinistros && result.sinistros.length > 0) {
-        return {
-          success: true,
-          data: result.sinistros[0] // Pegar o primeiro resultado
-        };
-      }
-      
-      // Se não encontrou nada
-      return {
-        success: false,
-        data: null
-      };
+      const result = await response.json();
+      return result;
     } catch (error) {
       console.error('Erro ao obter sinistro:', error);
       throw error;
@@ -161,7 +48,7 @@ class SinistrosAPI {
 
   // Obter estatísticas
   static async obterEstatisticas(filtros = {}) {
-    const apiCall = async () => {
+    try {
       const params = new URLSearchParams();
       
       if (filtros.dt_ini) params.append('dt_ini', filtros.dt_ini);
@@ -174,25 +61,29 @@ class SinistrosAPI {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      return await response.json();
-    };
-
-    return await apiWithFallback(apiCall, mockEstatisticas);
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao obter estatísticas:', error);
+      throw error;
+    }
   }
 
   // Dashboard resumo expandido
   static async obterDashboardResumo() {
-    const apiCall = async () => {
+    try {
       const response = await fetch(`${API_BASE_URL}/sinistros/dashboard/resumo`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      return await response.json();
-    };
-
-    return await apiWithFallback(apiCall, mockDashboardData);
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao obter dashboard:', error);
+      throw error;
+    }
   }
 
   // Relatório de prejuízos
@@ -221,24 +112,19 @@ class SinistrosAPI {
 
   // Testar conexão
   static async testarConexao() {
-    const apiCall = async () => {
+    try {
       const response = await fetch(`${API_BASE_URL}/sinistros/test/connection`);
       
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
       
-      return await response.json();
-    };
-
-    const fallbackData = {
-      status: "Demo Mode",
-      message: "Backend não disponível. Usando dados de demonstração.",
-      database_status: "Simulado",
-      demo_mode: true
-    };
-
-    return await apiWithFallback(apiCall, fallbackData);
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao testar conexão:', error);
+      throw error;
+    }
   }
 
   // Atualizar status de pagamento
@@ -289,7 +175,7 @@ class SinistrosAPI {
 
   // ===== MÉTODOS PARA API DE AUTOMAÇÃO (Tabela Sinistros) =====
   
-  // Obter sinistro da tabela de automação
+  // Obter sinistro da tabela de automação por ID
   static async obterSinistroAutomacao(sinistroId) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/${sinistroId}`);
@@ -302,6 +188,24 @@ class SinistrosAPI {
       return result;
     } catch (error) {
       console.error('Erro ao obter sinistro da automação:', error);
+      throw error;
+    }
+  }
+
+  // Obter sinistro da tabela de automação por nota fiscal
+  static async obterSinistroAutomacaoPorNota(notaFiscal) {
+    try {
+      // Usar o endpoint correto que busca por ID (nota-conhecimento)
+      const response = await fetch(`${API_BASE_URL}/api/automacao/sinistros/${notaFiscal}-${notaFiscal}`);
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao obter sinistro da automação por nota:', error);
       throw error;
     }
   }
