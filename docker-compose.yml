@@ -24,7 +24,7 @@ services:
       # Ambiente
       - ENVIRONMENT=production
       - DEBUG=false
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/backend
     volumes:
       - ./backend/logs:/app/logs
     restart: unless-stopped

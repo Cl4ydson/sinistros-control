@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "sinistros-control",
+  "name": "sinistros-brsamor-2025",
   "builds": [
     {
       "src": "backend/app/main.py",
@@ -41,7 +41,7 @@
   },
   "build": {
     "env": {
-      "VITE_API_BASE_URL": "https://your-vercel-app.vercel.app",
+      "VITE_API_BASE_URL": "https://sinistros-brsamor-2025.vercel.app",
       "VITE_APP_TITLE": "Sistema de Sinistros BRSAMOR",
       "VITE_ENVIRONMENT": "production"
     }

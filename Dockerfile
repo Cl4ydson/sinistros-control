@@ -29,6 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código do backend
 COPY backend/ .
 
+# Configurar PYTHONPATH
+ENV PYTHONPATH=/app:/app/backend
+
 # Criar usuário não-root para segurança
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
