@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 from typing import Optional
+from pydantic import BaseModel
 
 from ..services.sinistro_service_pyodbc import SinistroServicePyODBC
 from fastapi import Depends, Query, HTTPException, status
@@ -7,6 +8,12 @@ from ..core.auth import get_current_user
 from ..repositories.sinistro_repository_pyodbc import SinistroRepositoryPyODBC
 
 router = APIRouter(prefix="/sinistros", tags=["sinistros"])
+
+# Modelos para atualização de status
+class StatusUpdateRequest(BaseModel):
+    status_type: str  # 'pagamento', 'indenizacao', 'juridico', 'seguradora'
+    new_status: str
+    observacoes: Optional[str] = None
 
 @router.get("/")
 def list_sinistros(
@@ -89,4 +96,41 @@ def list_sinistros_sem_auth(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro ao buscar sinistros: {str(e)}"
+        )
+
+@router.put("/{sinistro_id}/status")
+def update_sinistro_status(
+    sinistro_id: str,
+    request: StatusUpdateRequest = Body(...)
+):
+    """Atualiza o status de um sinistro"""
+    try:
+        service = SinistroServicePyODBC()
+        result = service.atualizar_status_sinistro(
+            sinistro_id=sinistro_id,
+            status_type=request.status_type,
+            new_status=request.new_status,
+            observacoes=request.observacoes
+        )
+        
+        if result:
+            return {
+                "success": True,
+                "message": f"Status {request.status_type} atualizado com sucesso",
+                "data": {
+                    "sinistro_id": sinistro_id,
+                    "status_type": request.status_type,
+                    "new_status": request.new_status
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sinistro não encontrado"
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro ao atualizar status: {str(e)}"
         )

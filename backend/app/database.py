@@ -1,17 +1,18 @@
 import urllib.parse
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # ========== BANCO PRINCIPAL (AUTOMACAO_BRSAMOR) ==========
 # Credenciais para banco principal - usuários, auth, etc.
-user_principal = "adm"
-password_principal = "(Br$amor#2020)"
-server_principal = "SRVTOTVS02"
-database_principal = "AUTOMACAO_BRSAMOR"
+user_principal = os.getenv("DB_USERNAME", "adm")
+password_principal = os.getenv("DB_PASSWORD", "(Br$amor#2020)")
+server_principal = os.getenv("DB_SERVER", "SRVTOTVS02")
+database_principal = os.getenv("DB_DATABASE", "AUTOMACAO_BRSAMOR")
 
 params_principal = urllib.parse.quote_plus(
-    f"DRIVER={{SQL Server}};"
+    f"DRIVER={{ODBC Driver 18 for SQL Server}};"
     f"SERVER={server_principal};DATABASE={database_principal};"
     f"UID={user_principal};PWD={password_principal};TrustServerCertificate=yes;"
 )
@@ -24,13 +25,13 @@ SessionLocal_Principal = sessionmaker(bind=engine_principal, autocommit=False, a
 
 # ========== BANCO SINISTRO (AUTOMACAO) ==========
 # Credenciais para banco de sinistros
-user_sinistro = "consulta.pbi"
-password_sinistro = "Br$Samor@2025#C"
-server_sinistro = "137.131.246.149"
-database_sinistro = "dtbTransporte"
+user_sinistro = os.getenv("DB_TRANSPORT_USERNAME", "consulta.pbi")
+password_sinistro = os.getenv("DB_TRANSPORT_PASSWORD", "Br$Samor@2025#C")
+server_sinistro = os.getenv("DB_TRANSPORT_SERVER", "137.131.246.149")
+database_sinistro = os.getenv("DB_TRANSPORT_DATABASE", "dtbTransporte")
 
 # Usar connection string direta que funciona
-conn_str_sinistro = f"DRIVER={{SQL Server}};SERVER={server_sinistro};DATABASE={database_sinistro};UID={user_sinistro};PWD={password_sinistro};TrustServerCertificate=yes;"
+conn_str_sinistro = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server_sinistro};DATABASE={database_sinistro};UID={user_sinistro};PWD={password_sinistro};TrustServerCertificate=yes;"
 SQLALCHEMY_DATABASE_URL_SINISTRO = f"mssql+pyodbc:///?odbc_connect={urllib.parse.quote_plus(conn_str_sinistro)}"
 
 # Engine e Session para banco sinistro

@@ -583,7 +583,7 @@ class ESinistrosRepository:
         logger.info(f"Dados após validação: {dados_validados}")
         return dados_validados
     
-    def listar_todos(self, limit: int = 100) -> List[Dict]:
+    def listar_todos(self, limit: int = 1000000) -> List[Dict]:
         """Lista todos os sinistros da tabela"""
         try:
             conn = self._get_connection()

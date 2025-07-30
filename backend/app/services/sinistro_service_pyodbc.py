@@ -176,4 +176,43 @@ class SinistroServicePyODBC:
             return self.repository.obter_tipos_ocorrencia()
         except Exception as e:
             logger.error(f"Erro ao obter tipos de ocorrência: {str(e)}")
+            raise
+
+    def atualizar_status_sinistro(
+        self, 
+        sinistro_id: str, 
+        status_type: str, 
+        new_status: str, 
+        observacoes: Optional[str] = None
+    ) -> bool:
+        """
+        Atualiza o status de um sinistro
+        """
+        try:
+            # Validar sinistro_id
+            if not sinistro_id or '-' not in sinistro_id:
+                logger.warning(f"ID de sinistro inválido: {sinistro_id}")
+                return False
+            
+            parts = sinistro_id.split('-', 1)
+            nota_fiscal = parts[0]
+            conhecimento = parts[1] if len(parts) > 1 else ""
+            
+            # Validar status_type
+            valid_status_types = ['pagamento', 'indenizacao', 'juridico', 'seguradora']
+            if status_type not in valid_status_types:
+                logger.warning(f"Tipo de status inválido: {status_type}")
+                return False
+            
+            # Chamar o repositório para atualizar
+            return self.repository.atualizar_status(
+                nota_fiscal=nota_fiscal,
+                conhecimento=conhecimento,
+                status_type=status_type,
+                new_status=new_status,
+                observacoes=observacoes
+            )
+            
+        except Exception as e:
+            logger.error(f"Erro ao atualizar status do sinistro {sinistro_id}: {str(e)}")
             raise 

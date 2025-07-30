@@ -1,60 +1,160 @@
-# Arquivos Git
+# Git
 .git
 .gitignore
+.gitattributes
 
-# Documentação
-README.md
+# Documentation
 *.md
+docs/
 
-# Logs
-*.log
-logs/
+# Environment files
+.env
+.env.local
+.env.example
+.env.docker.example
 
-# Cache Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Virtual environments
-backend/venv/
-env/
-venv/
-
-# Node.js
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-npm-debug.log*
-yarn-debug.log*
-
-# IDEs
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Sistema
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Testes
-test_*.py
-debug_*.py
-teste_*.py
+# Logs
+*.log
+logs/
+backend/logs/
 
-# Arquivos temporários
-*.tmp
-*.temp
-nul
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Environment files (serão passados por variáveis)
-.env
-.env.local
-.env.production
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+backend/venv/
+backend/.venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/out/
 
 # Docker
-Dockerfile
-docker-compose.yml
-.dockerignore 
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Batch files (Windows scripts)
+*.bat
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+
+# Test files
+test/
+tests/
+*test*
+*.test.js
+*.spec.js
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/

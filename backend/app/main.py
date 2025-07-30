@@ -15,7 +15,7 @@ app = FastAPI(
 # Configuração CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # URLs do frontend
+    allow_origins=["http://localhost", "http://localhost:80", "http://localhost:5173", "http://localhost:3000"],  # URLs do frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,5 +31,14 @@ def root():
     return {
         "status": "ok",
         "message": "Sinistros Control API está funcionando",
+        "version": "1.0.0"
+    }
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Docker containers"""
+    return {
+        "status": "healthy",
+        "service": "sinistros-backend",
         "version": "1.0.0"
     }

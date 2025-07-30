@@ -576,7 +576,7 @@ class SinistrosControleRepository:
         except Exception as e:
             logger.error(f"Erro ao atualizar programação de pagamento: {e}")
     
-    def listar_todos(self, limit: int = 100) -> List[Dict]:
+    def listar_todos(self, limit: int = 1000000) -> List[Dict]:
         """Lista todos os sinistros da tabela SinistrosControle"""
         try:
             conn = self._get_connection()
