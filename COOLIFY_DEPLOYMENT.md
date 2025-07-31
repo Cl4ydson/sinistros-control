@@ -50,15 +50,19 @@ VITE_DEMO_MODE=false
 ### 2. Coolify Configuration
 1. Create a new project in Coolify
 2. Set the repository URL
-3. Choose one of these compose files (in order of recommendation):
-   - `compose.simple.yaml` ⭐ (recommended - no health checks)
-   - `compose.yaml` (with health checks)
-   - `docker-compose.yaml` 
-   - `docker-compose.yml`
+3. **IMPORTANT**: Specify the exact compose file name:
+   - `docker-compose.minimal.yml` ⭐⭐ (MOST RECOMMENDED - no health checks, no dependencies)
+   - `compose.simple.yaml` ⭐ (no health checks)
+   - `compose.yaml` (with health checks - may fail)
 4. Configure the environment variables above
 5. Set up domain/subdomain for your application
 
-**Note**: If SQL Server health checks fail, use `compose.simple.yaml` which removes complex health check dependencies.
+**CRITICAL**: Make sure to specify the exact filename in Coolify's compose file field. Do NOT leave it blank or it will use the wrong file.
+
+### Troubleshooting SQL Server Issues:
+- If you see "container sqlserver is unhealthy" → Use `docker-compose.minimal.yml`
+- If you see "dependency failed to start" → Use `docker-compose.minimal.yml`
+- The minimal version has no health checks and no dependencies between services
 
 ### 3. Port Configuration
 - Frontend: Port 80 (will be proxied by Coolify)
