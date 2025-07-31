@@ -1,1 +1,0 @@
-# Arquivo para tornar o diretório backend um pacote Python válido 

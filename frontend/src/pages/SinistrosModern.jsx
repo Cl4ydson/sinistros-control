@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '../components/Layout/MainLayout';
 import { useTheme } from '../contexts/ThemeContext';
+import StatusDropdown from '../components/StatusDropdown';
 
 const SinistrosModern = () => {
   const { isDark } = useTheme();
@@ -34,34 +35,43 @@ const SinistrosModern = () => {
   // Mock data para demonstração
   const mockSinistros = [
     {
-      id: 1,
+      id: 'SIN-2024-001',
       numero: 'SIN-2024-001',
       cliente: 'Empresa ABC Ltda',
       dataOcorrencia: '2024-01-15',
       tipoOcorrencia: 'Avaria',
-      status: 'Em Análise',
+      status_pagamento: 'Aguardando ND',
+      status_indenizacao: 'Pendente',
+      status_juridico: 'Aguardando abertura',
+      status_seguradora: 'Processo iniciado',
       valorPrejuizo: 15000.00,
       modal: 'Rodoviário',
       responsavel: 'João Silva'
     },
     {
-      id: 2,
+      id: 'SIN-2024-002',
       numero: 'SIN-2024-002',
       cliente: 'Indústria XYZ SA',
       dataOcorrencia: '2024-01-18',
       tipoOcorrencia: 'Furto',
-      status: 'Pendente',
+      status_pagamento: 'Pago',
+      status_indenizacao: 'Pago',
+      status_juridico: 'Indenizado',
+      status_seguradora: 'Indenizado',
       valorPrejuizo: 25000.00,
       modal: 'Aéreo',
       responsavel: 'Maria Santos'
     },
     {
-      id: 3,
+      id: 'SIN-2024-003',
       numero: 'SIN-2024-003',
       cliente: 'Comércio 123 ME',
       dataOcorrencia: '2024-01-20',
       tipoOcorrencia: 'Atraso',
-      status: 'Concluído',
+      status_pagamento: 'Em tratativa',
+      status_indenizacao: 'Programado',
+      status_juridico: 'Processo iniciado',
+      status_seguradora: 'Aguardando abertura',
       valorPrejuizo: 5000.00,
       modal: 'Rodoviário',
       responsavel: 'Pedro Costa'
@@ -82,6 +92,39 @@ const SinistrosModern = () => {
       console.error('Erro ao carregar sinistros:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (sinistroId, statusType, newStatus) => {
+    try {
+      // Simular chamada à API
+      const response = await fetch(`/api/sinistros/${sinistroId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status_type: statusType,
+          new_status: newStatus
+        })
+      });
+
+      if (response.ok) {
+        // Atualizar o estado local
+        setSinistros(prevSinistros => 
+          prevSinistros.map(sinistro => 
+            sinistro.id === sinistroId 
+              ? { ...sinistro, [`status_${statusType}`]: newStatus }
+              : sinistro
+          )
+        );
+        console.log(`Status ${statusType} atualizado para ${newStatus} no sinistro ${sinistroId}`);
+      } else {
+        throw new Error('Erro ao atualizar status');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      // Aqui você pode adicionar um toast ou notificação de erro
     }
   };
 
@@ -127,7 +170,11 @@ const SinistrosModern = () => {
   const filteredSinistros = sinistros.filter(sinistro => {
     const matchesSearch = sinistro.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          sinistro.cliente.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !filters.status || sinistro.status === filters.status;
+    const matchesStatus = !filters.status || 
+                         sinistro.status_pagamento === filters.status ||
+                         sinistro.status_indenizacao === filters.status ||
+                         sinistro.status_juridico === filters.status ||
+                         sinistro.status_seguradora === filters.status;
     const matchesModal = !filters.modal || sinistro.modal === filters.modal;
     
     return matchesSearch && matchesStatus && matchesModal;
@@ -238,9 +285,28 @@ const SinistrosModern = () => {
                   `}
                 >
                   <option value="">Todos</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Em Análise">Em Análise</option>
-                  <option value="Concluído">Concluído</option>
+                  <optgroup label="Pagamento">
+                    <option value="Aguardando ND">Aguardando ND</option>
+                    <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+                    <option value="Pago">Pago</option>
+                    <option value="Em tratativa">Em tratativa</option>
+                  </optgroup>
+                  <optgroup label="Indenização">
+                    <option value="Programado">Programado</option>
+                    <option value="Pago">Pago</option>
+                    <option value="Pendente">Pendente</option>
+                    <option value="Pago Parcial">Pago Parcial</option>
+                  </optgroup>
+                  <optgroup label="Jurídico">
+                    <option value="Aguardando abertura">Aguardando abertura</option>
+                    <option value="Processo iniciado">Processo iniciado</option>
+                    <option value="Indenizado">Indenizado</option>
+                  </optgroup>
+                  <optgroup label="Seguradora">
+                    <option value="Aguardando abertura">Aguardando abertura (Seg)</option>
+                    <option value="Processo iniciado">Processo iniciado (Seg)</option>
+                    <option value="Indenizado">Indenizado (Seg)</option>
+                  </optgroup>
                 </select>
               </div>
 
@@ -335,7 +401,10 @@ const SinistrosModern = () => {
                       Tipo
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Status
+                      Status Pagamento
+                    </th>
+                    <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Status Indenização
                     </th>
                     <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                       Valor
@@ -364,10 +433,20 @@ const SinistrosModern = () => {
                         {sinistro.tipoOcorrencia}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(sinistro.status)}`}>
-                          {getStatusIcon(sinistro.status)}
-                          <span className="ml-1">{sinistro.status}</span>
-                        </span>
+                        <StatusDropdown
+                          currentStatus={sinistro.status_pagamento}
+                          statusType="pagamento"
+                          onStatusChange={handleStatusUpdate}
+                          sinistroId={sinistro.id}
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusDropdown
+                          currentStatus={sinistro.status_indenizacao}
+                          statusType="indenizacao"
+                          onStatusChange={handleStatusUpdate}
+                          sinistroId={sinistro.id}
+                        />
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                         {formatCurrency(sinistro.valorPrejuizo)}
@@ -417,10 +496,10 @@ const SinistrosModern = () => {
             </div>
             <div className="text-center">
               <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {filteredSinistros.filter(s => s.status === 'Concluído').length}
+                {filteredSinistros.filter(s => s.status_pagamento === 'Pago' && s.status_indenizacao === 'Pago').length}
               </p>
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Sinistros Concluídos
+                Sinistros Totalmente Pagos
               </p>
             </div>
           </div>

@@ -762,7 +762,7 @@ const SinistrosUltraProfessional = () => {
           <div className="flex items-center space-x-2">
             <Layers className={`w-4 h-4 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
             <span className={isDark ? 'text-slate-300' : 'text-gray-700'}>
-              ULTRATHINK v2.0
+              BR SAMOR v1.0
             </span>
           </div>
         </div>

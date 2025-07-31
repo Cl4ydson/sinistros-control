@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(docker:*)",
+      "Bash(build.bat dev)",
+      "Bash(cmd /c:*)",
+      "Bash(copy .env.example .env)",
+      "Bash(cp:*)",
+      "Bash(build.bat prod)",
+      "Bash(sed:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(copy Dockerfile.simple Dockerfile)",
+      "Bash(del Dockerfile)",
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(timeout:*)",
+      "Bash(npm:*)",
+      "Bash(Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue)",
+      "Bash(powershell:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git submodule:*)",
+      "Bash(git config:*)",
+      "Bash(git push:*)",
+      "Bash(true)"
+    ],
+    "deny": []
+  }
+}

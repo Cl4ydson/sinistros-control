@@ -10,7 +10,7 @@ export const isLocalhost = typeof window !== 'undefined' &&
 
 // API Configuration
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
-  isProduction ? '' : 'http://127.0.0.1:8001'
+  isProduction ? '' : 'http://127.0.0.1:8000'
 );
 
 // Demo Mode Configuration

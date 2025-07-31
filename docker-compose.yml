@@ -1,70 +1,183 @@
 version: '3.8'
 
 services:
-  # Backend FastAPI
-  backend:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    container_name: sinistros-backend
-    ports:
-      - "8001:8001"
-    environment:
-      # Banco de Dados - Configure com suas credenciais
-      - DB_SERVER=${DB_SERVER:-SRVTOTVS02}
-      - DB_DATABASE=${DB_DATABASE:-AUTOMACAO_BRSAMOR}
-      - DB_USERNAME=${DB_USERNAME:-adm}
-      - DB_PASSWORD=${DB_PASSWORD}
-      
-      # Segurança
-      - SECRET_KEY=${SECRET_KEY:-super-secret-key-change-in-production}
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      
-      # Ambiente
-      - ENVIRONMENT=production
-      - DEBUG=false
-      - PYTHONPATH=/app:/app/backend
-    volumes:
-      - ./backend/logs:/app/logs
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sinistros-sqlserver
     restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
+      - MSSQL_PID=${MSSQL_PID:-Express}
+      - MSSQL_TCP_PORT=${MSSQL_TCP_PORT:-1433}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - sqlserver_log:/var/opt/mssql/log
+      - sqlserver_secrets:/var/opt/mssql/secrets
+      - ./sql/init:/tmp/init-scripts:ro
     networks:
       - sinistros-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: [
+        "CMD-SHELL", 
+        "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -Q 'SELECT 1' || exit 1"
+      ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # SQL Server Initialization Service
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sinistros-sqlserver-init
+    restart: "no"
+    environment:
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
+    volumes:
+      - ./sql/init:/tmp/init-scripts:ro
+    networks:
+      - sinistros-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for SQL Server to be ready...';
+        sleep 10;
+        echo 'Running database initialization scripts...';
+        for sql_file in /tmp/init-scripts/*.sql; do
+          if [ -f \"$$sql_file\" ]; then
+            echo \"Executing $$sql_file...\";
+            /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P $$MSSQL_SA_PASSWORD -d master -i \"$$sql_file\";
+            if [ $$? -eq 0 ]; then
+              echo \"Successfully executed $$sql_file\";
+            else
+              echo \"Error executing $$sql_file\";
+            fi
+          fi
+        done;
+        echo 'Database initialization completed.';
+      "
+
+  # Backend Service - FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: sinistros-backend
+    restart: unless-stopped
+    environment:
+      # Database Configuration - Now pointing to local SQL Server
+      - DB_SERVER=${DB_SERVER:-sqlserver}
+      - DB_DATABASE=${DB_DATABASE:-AUTOMACAO_BRSAMOR}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}}
+      - DB_TRANSPORT_SERVER=${DB_TRANSPORT_SERVER:-sqlserver}
+      - DB_TRANSPORT_DATABASE=${DB_TRANSPORT_DATABASE:-dtbTransporte}
+      - DB_TRANSPORT_USERNAME=${DB_TRANSPORT_USERNAME:-sa}
+      - DB_TRANSPORT_PASSWORD=${DB_TRANSPORT_PASSWORD:-${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}}
+      
+      # Security Configuration
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      
+      # Application Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-false}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      
+      # SQL Server Configuration
+      - TRUST_SERVER_CERTIFICATE=${TRUST_SERVER_CERTIFICATE:-yes}
+      - ENCRYPT=${ENCRYPT:-no}
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_logs:/app/logs
+      - backend_data:/app/data
+    networks:
+      - sinistros-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # Frontend React
+  # Frontend Service - React + Nginx
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_DEMO_MODE=${VITE_DEMO_MODE:-false}
     container_name: sinistros-frontend
+    restart: unless-stopped
     ports:
       - "80:80"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8001
-      - VITE_APP_TITLE=Sistema de Sinistros BRSAMOR
-      - VITE_ENVIRONMENT=production
+      - "443:443"
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
     networks:
       - sinistros-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
+  # Reverse Proxy (Optional - for production)
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: sinistros-proxy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sinistros-network
+    profiles:
+      - production
+
+# Networks
 networks:
   sinistros-network:
     driver: bridge
+    name: sinistros-network
 
+# Volumes
 volumes:
-  backend-logs:
-    driver: local 
+  # SQL Server volumes
+  sqlserver_data:
+    driver: local
+    name: sinistros-sqlserver-data
+  sqlserver_log:
+    driver: local
+    name: sinistros-sqlserver-log
+  sqlserver_secrets:
+    driver: local
+    name: sinistros-sqlserver-secrets
+  
+  # Backend volumes
+  backend_logs:
+    driver: local
+    name: sinistros-backend-logs
+  backend_data:
+    driver: local
+    name: sinistros-backend-data

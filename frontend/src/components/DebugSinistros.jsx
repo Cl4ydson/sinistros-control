@@ -12,7 +12,7 @@ const DebugSinistros = () => {
     try {
       console.log('🔧 Testando API...');
       
-      const url = 'http://127.0.0.1:8001/sinistros/sem-auth?limit=5';
+      const url = 'http://127.0.0.1:8000/sinistros/sem-auth?limit=5';
       console.log('📡 URL:', url);
       
       const response = await fetch(url);
