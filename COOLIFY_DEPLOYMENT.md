@@ -50,9 +50,14 @@ VITE_DEMO_MODE=false
 ### 2. Coolify Configuration
 1. Create a new project in Coolify
 2. Set the repository URL
-3. Use the default `docker-compose.yml` file (Coolify will detect it automatically)
+3. Choose one of these compose files:
+   - `compose.yaml` (recommended for Coolify)
+   - `docker-compose.yaml` 
+   - `docker-compose.yml`
 4. Configure the environment variables above
 5. Set up domain/subdomain for your application
+
+**Note**: If Coolify shows "Docker Compose file not found", try specifying the exact filename in the project settings.
 
 ### 3. Port Configuration
 - Frontend: Port 80 (will be proxied by Coolify)
