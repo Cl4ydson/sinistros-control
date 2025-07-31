@@ -17,16 +17,16 @@ MSSQL_PID=Express
 MSSQL_TCP_PORT=1433
 
 # Primary Database Configuration
-DB_SERVER=sqlserver
+DB_SERVER=your-database-server
 DB_DATABASE=AUTOMACAO_BRSAMOR
 DB_USERNAME=sa
-DB_PASSWORD=YourStrong!Passw0rd123
+DB_PASSWORD=your-database-password
 
 # Transport Database Configuration
-DB_TRANSPORT_SERVER=sqlserver
+DB_TRANSPORT_SERVER=your-transport-server
 DB_TRANSPORT_DATABASE=dtbTransporte
 DB_TRANSPORT_USERNAME=sa
-DB_TRANSPORT_PASSWORD=YourStrong!Passw0rd123
+DB_TRANSPORT_PASSWORD=your-transport-password
 
 # Security Configuration (CHANGE THIS!)
 SECRET_KEY=your-super-secret-key-change-in-production-min-32-chars
