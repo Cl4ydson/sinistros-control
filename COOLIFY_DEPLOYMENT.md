@@ -50,7 +50,7 @@ VITE_DEMO_MODE=false
 ### 2. Coolify Configuration
 1. Create a new project in Coolify
 2. Set the repository URL
-3. Set the docker-compose file to `docker-compose.coolify.yml`
+3. Use the default `docker-compose.yml` file (Coolify will detect it automatically)
 4. Configure the environment variables above
 5. Set up domain/subdomain for your application
 
