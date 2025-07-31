@@ -50,14 +50,15 @@ VITE_DEMO_MODE=false
 ### 2. Coolify Configuration
 1. Create a new project in Coolify
 2. Set the repository URL
-3. Choose one of these compose files:
-   - `compose.yaml` (recommended for Coolify)
+3. Choose one of these compose files (in order of recommendation):
+   - `compose.simple.yaml` ⭐ (recommended - no health checks)
+   - `compose.yaml` (with health checks)
    - `docker-compose.yaml` 
    - `docker-compose.yml`
 4. Configure the environment variables above
 5. Set up domain/subdomain for your application
 
-**Note**: If Coolify shows "Docker Compose file not found", try specifying the exact filename in the project settings.
+**Note**: If SQL Server health checks fail, use `compose.simple.yaml` which removes complex health check dependencies.
 
 ### 3. Port Configuration
 - Frontend: Port 80 (will be proxied by Coolify)

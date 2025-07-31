@@ -9,17 +9,10 @@ services:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd123}
       - MSSQL_PID=Express
-      - MSSQL_TCP_PORT=1433
     ports:
       - "1433:1433"
     volumes:
       - sqlserver_data:/var/opt/mssql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -C -Q 'SELECT 1' || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 10
-      start_period: 120s
 
   # Backend Service
   backend:
@@ -48,12 +41,6 @@ services:
       - ENCRYPT=no
     depends_on:
       - sqlserver
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   # Frontend Service
   frontend:
@@ -68,12 +55,6 @@ services:
       - "80:80"
     depends_on:
       - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 volumes:
   sqlserver_data:
