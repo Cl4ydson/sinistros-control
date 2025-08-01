@@ -7,80 +7,11 @@ RUN apk add --no-cache curl
 # Remove default content
 RUN rm -rf /usr/share/nginx/html/*
 
-# Create a simple HTML file directly
-RUN echo '<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Sinistros - TESTE</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f0f0; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
-        .status { color: green; font-weight: bold; }
-        .error { color: red; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🎯 Sistema de Sinistros BRSAMOR</h1>
-        <p class="status">✅ Frontend funcionando!</p>
-        <p>Esta é uma versão de teste para verificar se o problema está no build do React.</p>
-        
-        <h3>Próximos passos:</h3>
-        <ol>
-            <li>Se você está vendo esta página, o nginx está funcionando</li>
-            <li>O problema está no build do React ou na cópia dos arquivos</li>
-            <li>Vamos corrigir o Dockerfile principal</li>
-        </ol>
-        
-        <h3>Teste da API:</h3>
-        <button onclick="testAPI()">Testar Conexão com Backend</button>
-        <div id="api-result"></div>
-        
-        <script>
-            async function testAPI() {
-                const result = document.getElementById("api-result");
-                try {
-                    const response = await fetch("/api/health");
-                    if (response.ok) {
-                        result.innerHTML = "<p class=\"status\">✅ API conectada com sucesso!</p>";
-                    } else {
-                        result.innerHTML = "<p class=\"error\">❌ API respondeu com erro: " + response.status + "</p>";
-                    }
-                } catch (error) {
-                    result.innerHTML = "<p class=\"error\">❌ Erro ao conectar com API: " + error.message + "</p>";
-                }
-            }
-        </script>
-    </div>
-</body>
-</html>' > /usr/share/nginx/html/index.html
+# Create simple test page
+RUN echo '<html><head><title>Teste Frontend</title></head><body><h1>Frontend Funcionando!</h1><p>Se voce esta vendo isso, o nginx esta OK.</p><button onclick="fetch(\"/api/health\").then(r=>alert(\"API: \"+r.status))">Testar API</button></body></html>' > /usr/share/nginx/html/index.html
 
 # Create nginx config
-RUN echo 'server {
-    listen 80;
-    server_name localhost;
-    root /usr/share/nginx/html;
-    index index.html;
-    
-    location /api/ {
-        proxy_pass http://backend:8000/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-    location /health {
-        return 200 "OK";
-        add_header Content-Type text/plain;
-    }
-}' > /etc/nginx/conf.d/default.conf
+RUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location /api/ { proxy_pass http://backend:8000/; } location / { try_files $uri /index.html; } }' > /etc/nginx/conf.d/default.conf
 
 # Verify files
 RUN ls -la /usr/share/nginx/html/
