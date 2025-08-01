@@ -60,25 +60,64 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
             detail="Erro ao criar usuário"
         )
 
+@router.get("/test-db")
+def test_database_connection(db: Session = Depends(get_db)):
+    """Endpoint para testar conexão com banco de dados"""
+    try:
+        # Testa conexão
+        result = db.execute("SELECT COUNT(*) as total FROM [dbo].[Cadastro]").fetchone()
+        return {
+            "status": "success",
+            "message": f"Conexão OK. {result.total} usuários cadastrados.",
+            "database": "AUTOMACAO_BRSAMOR",
+            "table": "[dbo].[Cadastro]"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Erro de conexão com banco: {str(e)}"
+        )
+
 @router.post("/login/", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     print(f"🔐 Tentativa de login para: {user_data.login}")
     
     try:
+        # Testa conexão com banco
+        try:
+            db.execute("SELECT 1")
+            print("✅ Conexão com banco OK")
+        except Exception as conn_error:
+            print(f"❌ Erro de conexão com banco: {str(conn_error)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Erro de conexão com banco de dados: {str(conn_error)}"
+            )
+        
+        # Busca usuário
         user = db.query(models.user.User).filter_by(login=user_data.login).first()
         print(f"👤 Usuário encontrado: {user is not None}")
         
-        if user:
-            print(f"📧 Email do usuário: {user.email}")
-            print(f"👤 Nome do usuário: {user.nome}")
-            password_valid = user.verify_password(user_data.senha)
-            print(f"🔑 Senha válida: {password_valid}")
-        
-        if not user or not user.verify_password(user_data.senha):
-            print("❌ Login falhou - usuário não encontrado ou senha incorreta")
+        if not user:
+            print("❌ Usuário não encontrado")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Login ou senha incorretos",
+                detail=f"Usuário '{user_data.login}' não encontrado no sistema",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        print(f"📧 Email do usuário: {user.email}")
+        print(f"👤 Nome do usuário: {user.nome}")
+        
+        # Verifica senha
+        password_valid = user.verify_password(user_data.senha)
+        print(f"🔑 Senha válida: {password_valid}")
+        
+        if not password_valid:
+            print("❌ Senha incorreta")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Senha incorreta para este usuário",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
@@ -92,8 +131,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"💥 Erro durante login: {str(e)}")
+        print(f"💥 Erro inesperado durante login: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
+            detail=f"Erro inesperado no servidor: {str(e)}"
         )

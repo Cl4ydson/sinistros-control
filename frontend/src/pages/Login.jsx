@@ -10,6 +10,27 @@ export default function Login() {
   
   const navigate = useNavigate();
 
+  const testConnection = async () => {
+    setLoading(true);
+    setErro(null);
+    
+    try {
+      console.log("🔧 Testando conexão com banco...");
+      const { data } = await api.get("/auth/test-db");
+      console.log("✅ Teste de conexão:", data);
+      setErro(`✅ ${data.message}`);
+    } catch (err) {
+      console.error("❌ Erro no teste:", err);
+      if (err.response?.data?.detail) {
+        setErro(`❌ Teste falhou: ${err.response.data.detail}`);
+      } else {
+        setErro(`❌ Erro no teste: ${err.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -35,14 +56,28 @@ export default function Login() {
       console.error("Response data:", err.response?.data);
       console.error("Status:", err.response?.status);
       
+      // Mensagens específicas baseadas no status e conteúdo da resposta
       if (err.response?.status === 401) {
-        setErro("Login ou senha incorretos");
+        const detail = err.response?.data?.detail || "";
+        if (detail.includes("não encontrado")) {
+          setErro(`❌ ${detail}`);
+        } else if (detail.includes("Senha incorreta")) {
+          setErro(`🔑 ${detail}`);
+        } else {
+          setErro("🚫 Credenciais inválidas. Verifique usuário e senha.");
+        }
+      } else if (err.response?.status === 503) {
+        setErro(`🔌 Problema de conexão: ${err.response?.data?.detail || "Banco de dados indisponível"}`);
+      } else if (err.response?.status === 500) {
+        setErro(`⚠️ Erro no servidor: ${err.response?.data?.detail || "Erro interno do sistema"}`);
       } else if (err.response?.status === 422) {
-        setErro("Dados inválidos. Verifique os campos.");
+        setErro("📝 Dados inválidos. Verifique se os campos estão preenchidos corretamente.");
       } else if (err.code === 'ERR_NETWORK') {
-        setErro("Erro de conexão. Verifique se o servidor está disponível.");
+        setErro("🌐 Erro de rede. Verifique sua conexão com a internet.");
+      } else if (err.response?.data?.detail) {
+        setErro(`💥 ${err.response.data.detail}`);
       } else {
-        setErro(`Erro: ${err.response?.data?.detail || "Erro interno"}`);
+        setErro(`❓ Erro desconhecido: ${err.message || "Tente novamente em alguns instantes"}`);
       }
     } finally {
       setLoading(false);
@@ -130,6 +165,14 @@ export default function Login() {
               <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium">
                 Criar conta
               </Link>
+              <button 
+                type="button"
+                onClick={testConnection}
+                className="text-green-600 hover:text-green-800 font-medium"
+                disabled={loading}
+              >
+                🔧 Testar Conexão
+              </button>
               <a href="#" className="text-blue-600 hover:text-blue-800 font-medium">
                 Esqueceu sua senha?
               </a>
