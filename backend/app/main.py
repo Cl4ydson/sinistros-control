@@ -42,3 +42,38 @@ def health_check():
         "service": "sinistros-backend",
         "version": "1.0.0"
     }
+
+@app.get("/test-db")
+def test_database_connection():
+    """Testa conexão com o banco de dados"""
+    from .database import get_db_principal
+    from . import models
+    
+    try:
+        db = next(get_db_principal())
+        
+        # Testa conexão básica
+        result = db.execute("SELECT 1 as test").fetchone()
+        
+        # Tenta contar usuários na tabela
+        user_count = db.query(models.user.User).count()
+        
+        # Tenta listar alguns usuários (apenas login, sem senha)
+        users = db.query(models.user.User.login, models.user.User.nome).limit(5).all()
+        
+        return {
+            "status": "success",
+            "database": "AUTOMACAO_BRSAMOR",
+            "connection": "OK",
+            "test_query": result[0] if result else None,
+            "user_count": user_count,
+            "sample_users": [{"login": u.login, "nome": u.nome} for u in users]
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "database": "AUTOMACAO_BRSAMOR", 
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
