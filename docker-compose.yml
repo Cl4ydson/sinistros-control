@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.backend
     restart: unless-stopped
     ports:
-      - "8002:8000"
+      - "8003:8000"
     environment:
       # Banco Principal (Servidor externo)
       - DB_SERVER=${DB_SERVER:-SRVTOTVS02}
@@ -36,8 +36,8 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
-        - VITE_DEMO_MODE=${VITE_DEMO_MODE:-false}
+        - VITE_API_BASE_URL=/api
+        - VITE_DEMO_MODE=false
     restart: unless-stopped
     ports:
-      - "8090:80"
+      - "8091:80"
