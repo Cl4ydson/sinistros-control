@@ -14,6 +14,13 @@ DEMO_USERS = [
         "email": "user@brsamor.com.br", 
         "nome": "Usuário Demo",
         "senha_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"  # secret
+    },
+    {
+        "id": 3,
+        "login": "teste",
+        "email": "teste@brsamor.com.br", 
+        "nome": "Usuário Teste",
+        "senha_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"  # secret
     }
 ]
 

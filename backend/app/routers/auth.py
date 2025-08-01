@@ -8,9 +8,10 @@ from jose import JWTError, jwt
 from typing import Optional
 
 # Configurações de segurança
-SECRET_KEY = "sua_chave_secreta_aqui"  # Em produção, use variável de ambiente
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+import os
+SECRET_KEY = os.getenv("SECRET_KEY", "sua_chave_secreta_aqui")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 router = APIRouter(              
     prefix="/auth",
@@ -61,16 +62,38 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login/", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(models.user.User).filter_by(login=user_data.login).first()
-    if not user or not user.verify_password(user_data.senha):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Login ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    print(f"🔐 Tentativa de login para: {user_data.login}")
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.login}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+    try:
+        user = db.query(models.user.User).filter_by(login=user_data.login).first()
+        print(f"👤 Usuário encontrado: {user is not None}")
+        
+        if user:
+            print(f"📧 Email do usuário: {user.email}")
+            print(f"👤 Nome do usuário: {user.nome}")
+            password_valid = user.verify_password(user_data.senha)
+            print(f"🔑 Senha válida: {password_valid}")
+        
+        if not user or not user.verify_password(user_data.senha):
+            print("❌ Login falhou - usuário não encontrado ou senha incorreta")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Login ou senha incorretos",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        print("✅ Login bem-sucedido!")
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.login}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"💥 Erro durante login: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro interno: {str(e)}"
+        )
