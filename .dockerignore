@@ -30,11 +30,18 @@ temp/
 .env.local
 .env.development
 .env.test
+.env.coolify.example
 
 # Ignore build artifacts
 dist/
 build/
 coverage/
+
+# Ignore development scripts
+test_connection.py
+create_test_user.py
+test_api.py
+start_system.py
 
 # Ignore documentation that's not needed in container
 *.md
@@ -43,3 +50,17 @@ coverage/
 # Ignore original docker-compose (keep only the main one)
 docker-compose.original.yml
 docker-compose.dev.yml
+coolify.yml
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore virtual environments
+venv/
+env/
+ENV/

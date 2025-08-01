@@ -1,43 +1,66 @@
 version: '3.8'
 
 services:
-  # Backend Service - Conecta aos servidores SQL externos
+  # Backend Service - FastAPI
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     restart: unless-stopped
-    ports:
-      - "8003:8000"
     environment:
-      # Banco Principal (Servidor externo)
+      # Banco Principal (AUTOMACAO_BRSAMOR)
       - DB_SERVER=${DB_SERVER:-SRVTOTVS02}
       - DB_DATABASE=${DB_DATABASE:-AUTOMACAO_BRSAMOR}
-      - DB_USERNAME=${DB_USERNAME:-sa}
-      - DB_PASSWORD=${DB_PASSWORD}
-      # Banco Transporte (Servidor externo)
+      - DB_USERNAME=${DB_USERNAME:-adm}
+      - DB_PASSWORD=${DB_PASSWORD:-(Br$amor#2020)}
+      
+      # Banco Transporte (dtbTransporte)
       - DB_TRANSPORT_SERVER=${DB_TRANSPORT_SERVER:-137.131.246.149}
       - DB_TRANSPORT_DATABASE=${DB_TRANSPORT_DATABASE:-dtbTransporte}
-      - DB_TRANSPORT_USERNAME=${DB_TRANSPORT_USERNAME:-sa}
-      - DB_TRANSPORT_PASSWORD=${DB_TRANSPORT_PASSWORD}
-      # Configurações da aplicação
-      - SECRET_KEY=${SECRET_KEY}
+      - DB_TRANSPORT_USERNAME=${DB_TRANSPORT_USERNAME:-consulta.pbi}
+      - DB_TRANSPORT_PASSWORD=${DB_TRANSPORT_PASSWORD:-Br$Samor@2025#C}
+      
+      # Configurações de Segurança
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production-min-32-chars}
       - ALGORITHM=${ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      
+      # Configurações da Aplicação
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DEBUG=${DEBUG:-false}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - TRUST_SERVER_CERTIFICATE=${TRUST_SERVER_CERTIFICATE:-yes}
       - ENCRYPT=${ENCRYPT:-no}
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    expose:
+      - "8000"
 
-  # Frontend Service
+  # Frontend Service - React + Nginx
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
       args:
         - VITE_API_BASE_URL=/api
-        - VITE_DEMO_MODE=false
+        - VITE_DEMO_MODE=${VITE_DEMO_MODE:-false}
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
     ports:
-      - "8091:80"
+      - "${PORT:-80}:80"

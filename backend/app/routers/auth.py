@@ -65,7 +65,8 @@ def test_database_connection(db: Session = Depends(get_db)):
     """Endpoint para testar conexão com banco de dados"""
     try:
         # Testa conexão
-        result = db.execute("SELECT COUNT(*) as total FROM [dbo].[Cadastro]").fetchone()
+        from sqlalchemy import text
+        result = db.execute(text("SELECT COUNT(*) as total FROM [dbo].[Cadastro]")).fetchone()
         return {
             "status": "success",
             "message": f"Conexão OK. {result.total} usuários cadastrados.",
@@ -85,7 +86,8 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     try:
         # Testa conexão com banco
         try:
-            db.execute("SELECT 1")
+            from sqlalchemy import text
+            db.execute(text("SELECT 1"))
             print("✅ Conexão com banco OK")
         except Exception as conn_error:
             print(f"❌ Erro de conexão com banco: {str(conn_error)}")

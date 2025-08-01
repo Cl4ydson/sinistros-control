@@ -15,14 +15,38 @@ class SinistrosControleRepository:
     """Repository para operações nas tabelas SinistrosControle e ProgramacaoPagamento"""
     
     def __init__(self):
+        # Obter credenciais do ambiente
+        import os
+        server = os.getenv("DB_SERVER", "SRVTOTVS02")
+        database = os.getenv("DB_DATABASE", "AUTOMACAO_BRSAMOR")
+        username = os.getenv("DB_USERNAME", "adm")
+        password = os.getenv("DB_PASSWORD", "(Br$amor#2020)")
+        
+        # Tentar diferentes drivers ODBC
+        drivers_to_try = [
+            "ODBC Driver 18 for SQL Server",
+            "ODBC Driver 17 for SQL Server", 
+            "SQL Server"
+        ]
+        
+        # Encontrar driver disponível
+        available_drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
+        odbc_driver = "SQL Server"  # fallback
+        
+        for driver in drivers_to_try:
+            if driver in available_drivers:
+                odbc_driver = driver
+                break
+        
         # Credenciais do banco AUTOMACAO_BRSAMOR
         self.conn_str = (
-            "DRIVER={SQL Server};"
-            "SERVER=SRVTOTVS02;"
-            "DATABASE=AUTOMACAO_BRSAMOR;"
-            "UID=adm;"
-            "PWD=(Br$amor#2020);"
-            "TrustServerCertificate=yes;"
+            f"DRIVER={{{odbc_driver}}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            f"UID={username};"
+            f"PWD={password};"
+            f"TrustServerCertificate=yes;"
+            f"Encrypt=no;"
         )
     
     def _get_connection(self):

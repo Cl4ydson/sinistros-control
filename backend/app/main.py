@@ -53,7 +53,8 @@ def test_database_connection():
         db = next(get_db_principal())
         
         # Testa conexão básica
-        result = db.execute("SELECT 1 as test").fetchone()
+        from sqlalchemy import text
+        result = db.execute(text("SELECT 1 as test")).fetchone()
         
         # Tenta contar usuários na tabela
         user_count = db.query(models.user.User).count()
