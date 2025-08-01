@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # SQL Server Principal - AUTOMACAO_BRSAMOR
+  sqlserver-main:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd123}
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_main_data:/var/opt/mssql
+
+  # SQL Server Transporte - dtbTransporte
+  sqlserver-transport:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD_TRANSPORT:-YourStrong!Passw0rd123}
+      - MSSQL_PID=Express
+    ports:
+      - "1434:1433"
+    volumes:
+      - sqlserver_transport_data:/var/opt/mssql
+
+  # Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Banco Principal
+      - DB_SERVER=sqlserver-main
+      - DB_DATABASE=${DB_DATABASE:-AUTOMACAO_BRSAMOR}
+      - DB_USERNAME=sa
+      - DB_PASSWORD=${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd123}
+      # Banco Transporte
+      - DB_TRANSPORT_SERVER=sqlserver-transport
+      - DB_TRANSPORT_DATABASE=${DB_TRANSPORT_DATABASE:-dtbTransporte}
+      - DB_TRANSPORT_USERNAME=sa
+      - DB_TRANSPORT_PASSWORD=${MSSQL_SA_PASSWORD_TRANSPORT:-YourStrong!Passw0rd123}
+      # Configurações da aplicação
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production-min-32-chars}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - TRUST_SERVER_CERTIFICATE=yes
+      - ENCRYPT=no
+
+  # Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_BASE_URL=/api
+        - VITE_DEMO_MODE=false
+    restart: unless-stopped
+    ports:
+      - "80:80"
+
+volumes:
+  sqlserver_main_data:
+    driver: local
+  sqlserver_transport_data:
+    driver: local
