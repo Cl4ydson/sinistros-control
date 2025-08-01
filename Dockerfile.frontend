@@ -1,21 +1,49 @@
-# Dockerfile ultra-simples para debug
+# Multi-stage Dockerfile for React Frontend
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY frontend/ .
+
+# Build the application
+ENV VITE_API_BASE_URL=/api
+ENV VITE_DEMO_MODE=false
+RUN npm run build
+
+# Debug: Show what was built
+RUN echo "=== BUILD CONTENTS ===" && ls -la dist/ && echo "=== END BUILD ==="
+
+# Production stage
 FROM nginx:alpine
 
-# Install curl
+# Install curl for health checks
 RUN apk add --no-cache curl
 
-# Remove default content
+# Remove default nginx content
 RUN rm -rf /usr/share/nginx/html/*
 
-# Create simple test page
-RUN echo '<html><head><title>Teste Frontend</title></head><body><h1>Frontend Funcionando!</h1><p>Se voce esta vendo isso, o nginx esta OK.</p><button onclick="fetch(\"/api/health\").then(r=>alert(\"API: \"+r.status))">Testar API</button></body></html>' > /usr/share/nginx/html/index.html
+# Copy built React app
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
 
-# Create nginx config
-RUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location /api/ { proxy_pass http://backend:8000/; } location / { try_files $uri /index.html; } }' > /etc/nginx/conf.d/default.conf
+# Copy nginx configuration
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Verify files
-RUN ls -la /usr/share/nginx/html/
-RUN cat /usr/share/nginx/html/index.html
+# Debug: Show what was copied
+RUN echo "=== NGINX CONTENTS ===" && ls -la /usr/share/nginx/html/ && echo "=== END NGINX ==="
+
+# Ensure index.html exists
+RUN test -f /usr/share/nginx/html/index.html || echo "ERROR: index.html not found!"
+
+# Set permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
