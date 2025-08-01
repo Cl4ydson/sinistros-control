@@ -40,7 +40,7 @@ export default function Login() {
       } else if (err.response?.status === 422) {
         setErro("Dados inválidos. Verifique os campos.");
       } else if (err.code === 'ERR_NETWORK') {
-        setErro("Erro de conexão. Verifique se o servidor está rodando na porta 8000.");
+        setErro("Erro de conexão. Verifique se o servidor está disponível.");
       } else {
         setErro(`Erro: ${err.response?.data?.detail || "Erro interno"}`);
       }

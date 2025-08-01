@@ -219,7 +219,7 @@ const SinistrosPage = () => {
         Object.entries(filtros).filter(([, v]) => v)
       );
       const qs = new URLSearchParams(params).toString();
-      const url = `http://127.0.0.1:8000/sinistros/sem-auth${qs ? '?' + qs : ''}`;
+      const url = `/api/sinistros/sem-auth${qs ? '?' + qs : ''}`;
       
       console.log('🌐 Fazendo requisição para:', url);
       console.log('📋 Filtros aplicados:', params);

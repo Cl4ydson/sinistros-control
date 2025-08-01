@@ -275,7 +275,7 @@ const EditarSinistro = () => {
       };
 
       // Chamar API de automação para salvar na tabela Sinistros (criar ou atualizar)
-      const response = await fetch(`http://127.0.0.1:8000/api/automacao/sinistros/${id}`, {
+      const response = await fetch(`/api/automacao/sinistros/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
